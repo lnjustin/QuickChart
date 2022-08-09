@@ -369,6 +369,7 @@ def durationHandler(evt) {
                 listData = "${deviceName};${ta.capitalize()};${now};${timeDiff};Final"                  
                 state.eventList << listData
                 state.deviceStartMap.remove(deviceName)
+		durationUpdater()
                 saveMapHandler()
             }
         }       
