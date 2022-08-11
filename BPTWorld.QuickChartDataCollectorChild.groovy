@@ -112,7 +112,7 @@ def pageConfig() {
                         if (attType == null) attType = theType
                         if (theType != attType) areTypesEqual = false
                     }                    
-                    paragraph "*Selected attributes are not all of the same type*"
+                    if (!areTypesEqual) paragraph "*Selected attributes are not all of the same type*"
                 }
             } else if(dataType == "duration") {
                 input "theDevices", "capability.*", title: "Select Device", multiple:true, submitOnChange:true
