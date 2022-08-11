@@ -99,14 +99,20 @@ def pageConfig() {
                     theDevices.each { dev ->
                         attributes = dev.supportedAttributes
                         attributes.each { att ->
-                            theType = att.getDataType()
-                            if(theType == "NUMBER") {
-                                allAttrs << att.name
-                            }
+                            allAttrs << att.name
                         }
                     }
                     devAtt = allAttrs.unique().sort()                
-                    input "theAttr", "enum", title: "Select the Attributes", options: devAtt, multiple:true, submitOnChange:true
+                    input "theAttr", "enum", title: "Select the Attributes<small>All attributes must be the same type (string,number,etc.).</small>", options: devAtt, multiple:true, submitOnChange:true
+                    
+                    def areTypesEqual = true
+                    def attType = null
+                    theAttr.each { att ->                        
+                        theType = att.getDataType()
+                        if (attType == null) attType = theType
+                        if (theType != attType) areTypesEqual = false
+                    }                    
+                    paragraph "*Selected attributes are not all of the same type*"
                 }
             } else if(dataType == "duration") {
                 input "theDevices", "capability.*", title: "Select Device", multiple:true, submitOnChange:true
@@ -156,15 +162,22 @@ def pageConfig() {
                     ["3hour":"Every 3 Hours"]
                 ], defaultValue:"manual", submitOnChange:true
 
-                input "recordAll", "bool", title: "Record data even if it's the same as previous value", defaultValue:false, submitOnChange:true
-                if(!recordAll) {
-                    input "diffPerc", "bool", title: "Use value difference (off) OR percentage difference (on)", defaultValue:false, submitOnChange:true
-                    if(diffPerc) {
-                        paragraph "* Using Percentage Difference"
-                    } else {
-                        paragraph "* Using Value Difference"
+                input "recordAll", "bool", title: "Record data even if it's the same as previous value", defaultValue:false, submitOnChange:true    
+                if (theAttr) {
+                    def attType = null
+                    theAttr.each { att ->                        
+                        theType = att.getDataType()
+                        if (attType == null) attType = theType
                     }
-                    input "diff", "number", title: "Difference from previous value to record a data point (range: 0..100)", range: '0..100', defaultValue:0, submitOnChange:true
+                    if (attType == "number" && !recordAll) {
+                        input "diffPerc", "bool", title: "Use value difference (off) OR percentage difference (on)", defaultValue:false, submitOnChange:true
+                        if(diffPerc) {
+                            paragraph "* Using Percentage Difference"
+                        } else {
+                            paragraph "* Using Value Difference"
+                        }
+                        input "diff", "number", title: "Difference from previous value to record a data point (range: 0..100)", range: '0..100', defaultValue:0, submitOnChange:true
+                    }
                 }
                 input "dataPoints", "number", title: "How many data point to keep per option", submitOnChange:true
                 if(updateTime && dataPoints) {
@@ -465,35 +478,43 @@ def getDataHandler(evt) {
                 if(theDev.hasAttribute(theAt)) {
                     event = theDev.currentValue(theAt)
                     theName = "${theDev}-${theAt}".replace(" ","")
+                    attType = theAt.getDataType()
                     try{
                         prev = state.lastMap.get(theName)
                         if(prev == null) prev = 999
                     } catch(e) {
                         prev = 999
                     }
-                    if(diffPerc) {                      
-                        theDiff = 100 * ((Math.abs(event - prev)) / prev).round(2)
-                    } else {
-                        theDiff = Math.abs(prev - event)
-                    }
-                    if(logEnable) log.debug "In getDataHandler - checking prev: ${prev} -VS- ${event} - theDiff: ${theDiff}"
-                    if(theDiff < diff.toInteger()) {
-                        if(recordAll) {
-                            if(logEnable) log.debug "In getDataHandler - recordAll - Recording ${theDev};${theAt.capitalize()};${now};${event} - prev: ${prev}"
-                            listData = "${theDev};${theAt.capitalize()};${now};${event};Final"
-                            state.eventList << listData
-                            if(logEnable) log.debug "In getDataHandler - Saving prev - ${theName} - ${event}"
-                            state.lastMap.put(theName,event)
-                        } else {
-                            if(logEnable) log.debug "In getDataHandler - NOT Recording ${theDev};${theAt.capitalize()};${now};${event} - prev: ${prev}"
+                    def recordEvent = false
+                    if(recordAll) recordEvent = true
+                    else { 
+                        if (attType == "number") {                    
+                            if(diffPerc) {                      
+                                theDiff = 100 * ((Math.abs(event - prev)) / prev).round(2)
+                            } else {
+                                theDiff = Math.abs(prev - event)
+                            }
+                            if(logEnable) log.debug "In getDataHandler - checking prev: ${prev} -VS- ${event} - theDiff: ${theDiff}"
+                            if(theDiff < diff.toInteger()) {
+                                if (recordAll) recordEvent = true
+                                else recordEvent = false
+                            } else {
+                               if(logEnable) log.debug "In getDataHandler - theDiff($theDiff) is > ${diff}"
+                               recordEvent = true
+                            }
                         }
-                    } else {
-                        if(logEnable) log.debug "In getDataHandler - theDiff($theDiff) is > ${diff} - Recording ${theDev};${theAt.capitalize()};${now};${event} - prev: ${prev}"
+                        else if (event != prev) recordEvent = true                            
+                    }
+                    if (recordEvent) {
+                        if(logEnable) log.debug "In getDataHandler - recordAll - Recording ${theDev};${theAt.capitalize()};${now};${event} - prev: ${prev}"
                         listData = "${theDev};${theAt.capitalize()};${now};${event};Final"
                         state.eventList << listData
                         if(logEnable) log.debug "In getDataHandler - Saving prev - ${theName} - ${event}"
-                        state.lastMap.put(theName,event)
+                        state.lastMap.put(theName,event)                    
                     }
+                    else {
+                        if(logEnable) log.debug "In getDataHandler - NOT Recording ${theDev};${theAt.capitalize()};${now};${event} - prev: ${prev}"    
+                    }                        
                 }
                 log.trace "lastMap: ${state.lastMap}"
                 checkPointsHandler()
