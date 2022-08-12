@@ -37,6 +37,9 @@
  *
  *  Changes:
  *
+ *  0.2.4 - 08/09/22 - One step forward...two steps back
+ *  0.2.3 - 08/09/22 - Added more data checks
+ *  0.2.2 - 08/09/22 - Major change by @JustinL - See thread for details
  *  0.2.1 - 08/08/22 - Added some logging to see what's going on
  *  0.2.0 - 08/08/22 - Fixed a typo
  *  ---
@@ -47,7 +50,7 @@
 
 def setVersion(){
     state.name = "Quick Chart"
-	state.version = "0.2.1"
+	state.version = "0.2.4"
     sendLocationEvent(name: "updateVersionInfo", value: "${state.name}:${state.version}")
 }
 
@@ -86,30 +89,40 @@ def pageConfig() {
         }
         
         section(getFormat("header-green", "${getImage("Blank")}"+" Chart Options")) {
-            input "gType", "enum", title: "Chart Style", options: ["bar","line","radar","pie","doughnut","polar","scatter","bubble","radialGauge","violin","sparkline","progressBar",""], submitOnChange:true, width:6
+            input "gType", "enum", title: "Chart Style", options: ["bar","line", "horizontalBar","radar","pie","doughnut","polar","scatter","bubble","radialGauge","violin","sparkline","progressBar",""], submitOnChange:true, width:6
             input "theChartTitle", "text", title: "Chart Title", submitOnChange:true, width:6            
             input "bkgrdColor", "text", title: "Background Color", defaultValue:"white", submitOnChange:true            
             input "showDevInAtt", "bool", title: "Show Device Name with Attribute in Chart Header", defaultValue:false, submitOnChange:true
             paragraph "<hr>"
             input "dataSource", "bool", title: "Get data from file OR from device event history", defaultValue:false, submitOnChange:true
             if(dataSource) {        // Event History
-                paragraph "<b>Using Device History</b><br><small>Only works with numerical data (temp,humidity,etc).</small>"
+                paragraph "<b>Using Device History</b><br>"
                 input "theDevice", "capability.*", title: "Select the Device(s)", multiple:true, submitOnChange:true
                 if(theDevice) {
                     labelOptions = []
                     allAttrs = []
+                    attTypes = [:]
                     theDevice.each { dev ->
                         labelOptions << dev.displayName
                         attributes = dev.supportedAttributes
                         attributes.each { att ->
-                            theType = att.getDataType()
-                            if(theType == "NUMBER") {
-                                allAttrs << att.name
-                            }
+                            allAttrs << att.name
+                            attTypes[att.name] = att.getDataType()
                         }
                     }
                     devAtt = allAttrs.unique().sort()
-                    input "theAtt", "enum", title: "Select the Attribute(s)<br><small>Only Choose Numeric Attributes</small>", options: devAtt, multiple:true, submitOnChange:true
+                    input "theAtt", "enum", title: "Select the Attribute(s)<br><small>All attributes must be the same type (string,number,etc.).</small>", options: devAtt, multiple:true, submitOnChange:true
+                    
+                    def areTypesEqual = true
+                    def attType = null
+                    theAtt.each { att ->                        
+                        theType = attTypes[att]
+                        if (attType == null) attType = theType
+                        if (theType != attType) areTypesEqual = false
+                    }                    
+                    if (!areTypesEqual) paragraph "*Selected attributes are not all of the same type*"
+                    else state.isNumericalData = attType == "number" ? true : false
+                    
                     input "labelDev", "enum", title: "Select 'Label' Device (X-Axis)", options: labelOptions, multiple:false, submitOnChange:true
                     dataType = "rawdata"
                 }
@@ -183,6 +196,17 @@ def pageConfig() {
                 ["3hour":"Every 3 Hours"]
             ], defaultValue:"manual", submitOnChange:true 
             input "reverseMap", "bool", title: "Reverse Map Output", defaultValue:false, submitOnChange:true
+            
+            input "displayXAxis", "bool", title: "Display X-Axis", defaultValue:true, submitOnChange:false, width: 4
+            input "displayXAxisGrid", "bool", title: "Display X-Axis Gridlines", defaultValue:true, submitOnChange:false, width: 4
+            input "stackXAxis", "bool", title: "Stack X-Axis Data", defaultValue:false, submitOnChange:false, width: 4            
+            
+            input "displayYAxis", "bool", title: "Display Y-Axis", defaultValue:true, submitOnChange:false, width: 4
+            input "displayYAxisGrid", "bool", title: "Display Y-Axis Gridlines", defaultValue:true, submitOnChange:false, width: 4
+            input "stackYAxis", "bool", title: "Stack Y-Axis Data", defaultValue:false, submitOnChange:false, width: 4
+            
+            input "displayLegend", "bool", title: "Display Legend", defaultValue:true, submitOnChange:false, width: 4
+            input "onChartValueLabels", "bool", title: "Display Values as On-Chart Labels", defaultValue:false, submitOnChange:false, width: 4
             paragraph "<hr>"
         }
     
@@ -394,64 +418,179 @@ def eventChartingHandler(eventMap) {
         log.info "${app.label} is Paused or Disabled"
     } else {
         if(logEnable) log.debug "In eventChartingHandler (${state.version}) - Device Events"
-        x=1
-        theLabels = []
-        theData = []
-        if(eventMap) {
-            eventMap.each { it ->  
-                (theDev,theAtt) = it.key.split(";")
-                theD = it.value
-                if(showDevInAtt) {
-                    theAtt = "${theDev} - ${theAtt}"
-                } else {
-                    theAtt = "${theAtt}"
-                }
-                theD.each { tdata ->
-                    if(dataSource) {
-                        tDate = tdata.date.format("EEE hh:mm").toString()
-                    } else {
-                        if(theDays == "999") {
-                            if(tdata) {
-                                theDate = new Date(tdata.date)
-                                tDate = theDate.format("EEE hh:mm").toString()
-                            } else {
-                                log.warn "There doesn't seem to be any data"
-                                log.warn "tdata: $tdata"
-                            }
-                        } else {
-                            tDate = tdata.date.toString()
-                        }
-                    }
-                    if(decimals == "None") {
-                        tValue = new BigDecimal(tdata.value).setScale(0, java.math.RoundingMode.HALF_UP)
-                    } else if(decimals == "1") {
-                        tValue = new BigDecimal(tdata.value).setScale(1, java.math.RoundingMode.HALF_UP)
-                    } else if(decimals == "2") {
-                        tValue = new BigDecimal(tdata.value).setScale(2, java.math.RoundingMode.HALF_UP)
-                    }
-                    if(secMin) {
-                        theT = tValue / 60
-                    } else {
-                        theT = tValue
-                    }
-                    
-                    if(theDev.toString() == labelDev.toString()) {
-                        theLabels << "'${tDate}'"
-                    } 
-                    theData << theT
-                }
-                if(x==1) {
-                    buildChart = "<img width='100%' src=\"https://quickchart.io/chart?f=png&bkg=$bkgrdColor&c={type:'${gType}',data:{labels:${theLabels},datasets:[{label:'${theAtt}',data:${theData}}"
-                } else {
-                    buildChart += ",{label:'${theAtt}',data:${theData}}"
-                }
 
-                x += 1
-                theLabels = []
-                theData = []
+        if (state.isNumericalData) {
+            if(logEnable) log.debug "In eventChartingHandler -- Building Numerical Chart --"
+
+            x=1
+            theLabels = []
+            theData = []
+            if(eventMap) {
+                eventMap.each { it ->  
+                    (theDev,theAtt) = it.key.split(";")
+                    theD = it.value
+                
+                    if(showDevInAtt) {
+                        theAtt = "${theDev} - ${theAtt}"
+                    } else {
+                        theAtt = "${theAtt}"
+                    }
+                    theD.each { tdata ->                                          
+                        if(dataSource) {
+                            tDate = tdata.date.format("EEE hh:mm").toString()
+                        } else {
+                            if(theDays == "999") {
+                                if(tdata) {
+                                    theDate = new Date(tdata.date)
+                                    tDate = theDate.format("EEE hh:mm").toString()
+                                } else {
+                                    log.warn "There doesn't seem to be any data"
+                                    log.warn "tdata: $tdata"
+                                }
+                            } else {
+                                tDate = tdata.date.toString()
+                            }
+                        }
+                        if(decimals == "None") {
+                            tValue = new BigDecimal(tdata.value).setScale(0, java.math.RoundingMode.HALF_UP)
+                        } else if(decimals == "1") {
+                            tValue = new BigDecimal(tdata.value).setScale(1, java.math.RoundingMode.HALF_UP)
+                        } else if(decimals == "2") {
+                            tValue = new BigDecimal(tdata.value).setScale(2, java.math.RoundingMode.HALF_UP)
+                        }
+                        if(secMin) {
+                            theT = tValue / 60
+                        } else {
+                            theT = tValue
+                        }
+                        
+                        if(theDev.toString() == labelDev.toString()) {
+                            theLabels << "'${tDate}'"
+                        } 
+                        theData << theT
+                    }
+                    if(x==1) {
+                        buildChart = "<img width='100%' src=\"https://quickchart.io/chart?f=png&bkg=$bkgrdColor&c={type:'${gType}',data:{labels:${theLabels},datasets:[{label:'${theAtt}',data:${theData}}"
+                    } else {
+                        buildChart += ",{label:'${theAtt}',data:${theData}}"
+                    }
+
+                    x += 1
+                    theLabels = []
+                    theData = []
+                }
+                buildChart += "]},options: {"
+                buildChart += "title: {display: true,text: '${theChartTitle}'}"
+                buildChart += ",legend:{display: ${displayLegend}}"
+                if (onChartValueLabels) buildChart += ",plugins: {datalabels: {anchor: 'center', align:'center', formatter: function(value,context) { return context.chart.data.datasets[context.datasetIndex].label;}}}"
+                buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, gridLines:{display: ${displayXAxisGrid}}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, gridLines:{display: ${displayYAxisGrid}}}]}"
+                buildChart += "}}\" onclick=\"window.open(this.src)\">"
             }
         }
-        buildChart += "]},options: {title: {display: true,text: '${theChartTitle}'}}}\" onclick=\"window.open(this.src)\">"
+        else {
+            if(logEnable) log.debug "In eventChartingHandler -- Building Non-Numerical Chart --"
+            theLabels = []
+            theDatasets = []
+            def minDate = null
+            def maxDate = null
+            buildChart = "<img width='100%' src=\"https://quickchart.io/chart?f=png&bkg=$bkgrdColor&c={type:'${gType}'"
+            if(eventMap) {
+                x = 0
+                eventMap.each { it ->  
+                    (theDev,theAtt) = it.key.split(";")
+                    theD = it.value
+                
+                    if(showDevInAtt) {
+                        theAtt = "${theDev} - ${theAtt}"
+                    } else {
+                        theAtt = "${theAtt}"
+                    }                    
+                    theLabels << "'${theAtt}'"
+                    
+                    theDataset = ""
+                    if(logEnable) log.debug "In eventChartingHandler - building dataset for ${theAtt} from data: ${theD}"
+                    
+                    y=0
+                    theD.each { tdata ->
+                        if (y < theD.size() - 1) tdataNext = theD[y+1]
+                        else {
+                            if(reverseMap) tdataNext = [value: null, date: new Date()]
+                            else tdataNext = [value: null, date: new Date()]
+                        }
+                        if(minDate == null && !reverseMap) minDate = new Date()
+                        else if (minDate == null) minDate = tdata.date
+                        else if (minDate.after(tdata.date)) minDate = tdata.date
+                        if(maxDate == null && reverseMap) maxDate = new Date()
+                        else if (maxDate == null) maxDate = tdata.date
+                        else if (tdata.date.after(maxDate)) maxDate = tdata.date                          
+ 
+                        if(dataSource) {
+                            tDateStart = tdata.date.format("yyyy-MM-dd'T'HH:mm:ss").toString()
+                            tDateEnd = tdataNext.date.format("yyyy-MM-dd'T'HH:mm:ss").toString()
+                        } else if (dataType == "duration") {
+                            if(theDays == "999") {
+                                if(tdata) {
+                                    theDate = new Date(tdata.date)
+                                    tDateStart = theDate.format("yyyy-MM-dd'T'HH:mm:ss").toString()
+                                    theDateEnd = new Date(tdataNext.date)
+                                    tDateEnd = theDateEnd.format("yyyy-MM-dd'T'HH:mm:ss").toString()                                    
+                                } else {
+                                    log.warn "There doesn't seem to be any data"
+                                    log.warn "tdata: $tdata"
+                                }
+                            } else {
+                                tDateStart = tdata.date.format("yyyy-MM-dd'T'HH:mm:ss").toString()
+                                tDateEnd = tdataNext.date.format("yyyy-MM-dd'T'HH:mm:ss").toString()
+                            }
+                        }
+                        
+                        theData = []
+                        for (i=0; i < x; i++) {
+                            def spacer = [] 
+                            theData.add(spacer)
+                        }
+                        if(reverseMap) {
+                            datelist = ["new Date('" + tDateStart + "')", "new Date('" + tDateEnd + "')"]
+                        }
+                        else {
+                            datelist = ["new Date('" + tDateEnd + "')", "new Date('" + tDateStart + "')"]
+                        }
+                        
+                        theData.add(datelist)
+                  
+                        if (y>0) theDataset += ","
+                        theDataset += "{"
+                        theDataset += "label:'${tdata.value}'"
+                        theDataset += ",data:${theData}"
+                        
+                        def theGreenData = ["active", "open", "locked", "present", "on", "open"]
+                        def theRedData = ["inactive", "closed", "unlocked", "not present", "off", "closed"]
+                        
+                        if (theGreenData.contains(tdata.value)) theDataset += ",backgroundColor:'green'"
+                        else if (theRedData.contains(tdata.value)) theDataset += ",backgroundColor:'red'"
+                        
+                        theDataset += "}"
+                        
+                        y++
+                    }
+                    if(logEnable) log.debug "In eventChartingHandler - dataset: ${theDataset}"
+                    
+                    theDatasets << theDataset
+                    x++
+                }
+                
+                if(logEnable) log.debug "In eventChartingHandler - the datasets: ${theDatasets}"
+                buildChart += ",data:{labels:${theLabels},datasets:${theDatasets}}"         
+                buildChart += ",options: {"     
+                buildChart += "title: {display: true,text: '${theChartTitle}'}"
+                buildChart += ",legend:{display: ${displayLegend}}"
+                if (onChartValueLabels) buildChart += ",plugins: {datalabels: {anchor: 'center', display: 'auto', align:'center', color:'black', formatter: function(value,context) { return context.chart.data.datasets[context.datasetIndex].label;}}}"
+                buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, type: 'time', time: {unit: 'hour'}, ticks: {min: new Date('${minDate.format("yyyy-MM-dd'T'HH:mm:ss").toString()}'), max: new Date('${maxDate.format("yyyy-MM-dd'T'HH:mm:ss").toString()}')}, gridLines:{display: ${displayXAxisGrid}}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, gridLines:{display: ${displayYAxisGrid}}}]}"
+                buildChart += "}}\" onclick=\"window.open(this.src)\">"
+
+            }            
+        }
+        
         // Send Chart to Device
         if(dataDevice && buildChart) {
             theCLength = buildChart.length()
@@ -520,14 +659,18 @@ String getTheDevices(){
         httpGet(params) { resp ->
             if(resp!= null) {
                 theData = resp.getData().toString().split(", ")
-                if(theData == []) {
-                    log.trace "There is no data"
+                dSize = theData.size()
+                if(logEnable) log.debug "In getTheDevices  - dSize: ${dSize}"               
+                if(dSize == 0) {
+                    log.trace "There is no data to process"
                 } else {
                     if(logEnable) log.debug "In getTheDevices  - Found data: ${theData}"
                     theData.each { it ->
                         (theDev, theAtt, theDate, theValue, theStatus) = it.replace("[","").replace("]","").split(";")
+                        state.isNumericalData = theValue.isNumber()
                         dLabels << theDev
                     }
+                    if(logEnable) log.debug "In getTheDevices  - Finished collecting Data"
                     deviceLabels = dLabels.unique().sort()
                     return deviceLabels
                 }   
@@ -542,6 +685,7 @@ String getTheDevices(){
 
 String readFile(fName){
     if(logEnable) log.debug "In readFile (${state.version}) - ${fName}"
+    state.isData = false
     login()
     uri = "http://${location.hub.localIP}:8080/local/${fName}"
     def params = [
@@ -555,12 +699,15 @@ String readFile(fName){
         httpGet(params) { resp ->
             if(resp!= null) {
                 theData = resp.getData().toString().split(", ")
-                if(theData == []) {
-                    log.trace "There is no data"
+                dSize = theData.size()
+                if(logEnable) log.debug "In readFile  - dSize: ${dSize} - dataType: ${dataType}"               
+                if(dSize == 0) {
+                    if(logEnable) log.debug "In readFile - There is no data to process"
                 } else {
                     if(dataType == "rawdata") {
                         newData = []
                         newData = theData
+                        state.isData = true
                     } else if(dataType == "duration") {
                         if(logEnable) log.debug "In readFile - Duration Events"
                         newData = []
@@ -571,36 +718,43 @@ String readFile(fName){
                             tDate = theDate.format("EEE MMM dd").toString()
                             if(logEnable) log.debug "In readFile - Duration ***** Checking file for tDate: $tDate *****"
                             theData.each { el ->
+                                if(logEnable) log.debug "In readFile - Checking ${el} -VS- ${tDate}"
                                 if(el.toString().contains("${tDate.toString()}")) {
                                     newData << el
+                                    state.isData = true
                                 }
                             }
                             theDate = today - x
+                            if(logEnable) log.debug "In readFile ----------------------------------------------------------------------------------"
                         }
                     }
  
-                    eventMap = [:]
-                    newData.each { it ->
-                        (theDev, theAtt, theDate, theValue, theStatus) = it.replace("[","").replace("]","").split(";")
-                        theKey = "${theDev};${theAtt}"
-                        theValue = theValue.trim()
-                        newValue = []
-                        looking = eventMap.get(theKey)
-                        if(looking) {
-                            theFindings = eventMap.get(theKey)
-                            theFindings.each { tf ->
-                                newValue << [date:tf.date,value:tf.value]
+                    if(state.isData) {
+                        eventMap = [:]
+                        newData.each { it ->
+                            (theDev, theAtt, theDate, theValue, theStatus) = it.replace("[","").replace("]","").split(";")
+                            theKey = "${theDev};${theAtt}"
+                            theValue = theValue.trim()
+                            state.isNumericalData = theValue.isNumber()
+                            newValue = []
+                            looking = eventMap.get(theKey)
+                            if(looking) {
+                                theFindings = eventMap.get(theKey)
+                                theFindings.each { tf ->
+                                    newValue << [date:tf.date,value:tf.value]
+                                }
+                                newValue << [date:theDate,value:theValue]
+                            } else {
+                                newValue << [date:theDate,value:theValue]
                             }
-                            newValue << [date:theDate,value:theValue]
-                        } else {
-                            newValue << [date:theDate,value:theValue]
+                            eventMap.put(theKey, newValue)
                         }
-                        eventMap.put(theKey, newValue)
+                        return eventMap
                     }
-                    return eventMap
                 }
             } else {
-                if(logEnable) log.debug "In readFile - Data: NO DATA"
+                if(logEnable) log.debug "In readFile - There is no data to process"
+                state.isData = false
             }
         }
     } catch (e) {
