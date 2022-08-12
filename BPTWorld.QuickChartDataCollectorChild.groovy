@@ -96,10 +96,12 @@ def pageConfig() {
                 input "theDevices", "capability.*", title: "Select Device", multiple:true, submitOnChange:true
                 if(theDevices) {
                     allAttrs = []
+                    attTypes = [:]
                     theDevices.each { dev ->
                         attributes = dev.supportedAttributes
                         attributes.each { att ->
                             allAttrs << att.name
+                            attTypes[att.name] = att.getDataType()
                         }
                     }
                     devAtt = allAttrs.unique().sort()                
@@ -108,7 +110,7 @@ def pageConfig() {
                     def areTypesEqual = true
                     def attType = null
                     theAttr.each { att ->                        
-                        theType = att.getDataType()
+                        theType = attTypes[att]
                         if (attType == null) attType = theType
                         if (theType != attType) areTypesEqual = false
                     }                    
@@ -166,7 +168,7 @@ def pageConfig() {
                 if (theAttr) {
                     def attType = null
                     theAttr.each { att ->                        
-                        theType = att.getDataType()
+                        theType = attTypes[att]
                         if (attType == null) attType = theType
                     }
                     if (attType == "number" && !recordAll) {
