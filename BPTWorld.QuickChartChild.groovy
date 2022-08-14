@@ -61,11 +61,21 @@ definition(
     description: "Chart your data, quickly and easily. Display your charts in any dashboard.",
     category: "Convenience",
 	parent: "BPTWorld:Quick Chart",
+    oauth: [displayName: "Quick Chart", displayLink: ""],
     iconUrl: "",
     iconX2Url: "",
     iconX3Url: "",
 	importUrl: "",
 )
+
+mappings
+{
+    path("/quickChart/:appId") { action: [ GET: "fetchChart"] }
+}
+
+def getChartEndpoint() {
+    return getFullApiServerUrl() + "/quickChart/${app.id}?access_token=${state.accessToken}"    
+}
 
 preferences {
     page(name: "pageConfig")
@@ -142,7 +152,7 @@ def pageConfig() {
                     if(fileList) {
                         getTheDevices()
                         if(deviceLabels) {
-                            input "labelDev", "enum", title: "Select 'Label' Device (X-Axis)", options: deviceLabels, multiple:false, submitOnChange:true
+                            input "labelDev", "enum", title: "Select 'Label' Device (X-Axis)", options: deviceLabels, multiple:false, submitOnChange:true, required: true
                         }
                     }
                 } else {
@@ -253,6 +263,7 @@ def updated() {
 }
 
 def initialize() {
+    createAccessToken()
     checkEnableHandler()
     if(pauseApp) {
         log.info "${app.label} is Paused"
@@ -596,8 +607,14 @@ def eventChartingHandler(eventMap) {
             theCLength = buildChart.length()
             if(logEnable) log.debug "In eventChartingHandler - Chart length: $theCLength"
             if(theCLength > 1024) {
-                buildChart2 = "Chart is too big to fit on a dashboard Tile. It can still be viewed within the app."
-                dataDevice.sendEvent(name: "chart", value: buildChart2, isStateChange: true)
+                if(logEnable) log.debug "Chart is too big to fit in an attribute as HTML. Using endpoint."
+                
+                if (!state.refreshNum) state.refreshNum = 0
+                state.refreshNum++
+                def chartUrl = getChartEndpoint() + '&version=' + state.refreshNum   
+                state.buildChart = buildChart
+                def chartTile =     "<div style='height:100%;width:100%'><iframe src='${chartUrl}' style='height:100%;width:100%;border:none'></iframe></div>"
+                dataDevice.sendEvent(name: "chart", value: chartTile, isStateChange: true)
             } else {
                 dataDevice.sendEvent(name: "chart", value: buildChart, isStateChange: true)
             }
@@ -605,6 +622,15 @@ def eventChartingHandler(eventMap) {
         }
     }
     if(logEnable) log.debug "----------------------------------------------- End Quick Chart -----------------------------------------------"
+}
+
+def fetchChart() {
+    if(params.appId.toInteger() != app.id) {
+        logDebug("Returning null since app ID received at endpoint is ${params.appId.toInteger()} whereas the app ID of this app is ${app.id}")
+        return null    // request was not for this app/team, so return null
+    }    
+    if(logEnable) log.debug "In fetchChart - Rendering HTML"
+    render contentType: "text/html", data: state.buildChart, status: 200
 }
 
 def login() {        // Modified from code by @dman2306
