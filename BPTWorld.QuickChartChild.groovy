@@ -181,7 +181,7 @@ def pageConfig() {
                     ["6":"+ 6 Days"],
                     ["7":"+ 7 Days"]
                 ], defaultValue:"99", submitOnChange:true
-                input "decimals", "enum", title: "Number of Decimal places", options: ["None","1","2"], defaultValue:"None", submitOnChange:true                
+                if (state.isNumericalData) input "decimals", "enum", title: "Number of Decimal places", options: ["None","1","2"], defaultValue:"None", submitOnChange:true                
             } else if(dataType == "duration") {
                 input "theDays", "enum", title: "Select How to Chart", multiple:false, required:true, options: [
                     ["999":"Every Event"],
@@ -338,6 +338,10 @@ def getEventsHandler(evt) {
                     // don't have to do anymore processesing
                     eventChartingHandler(eventMap)
                 }
+                else if(theDays == "999") {
+                    // don't have to do anymore processesing
+                    eventChartingHandler(eventMap)
+                } 
                 else {
                     dailyMap = [:]
                     eventMap.each { it ->  
@@ -545,6 +549,8 @@ def eventChartingHandler(eventMap) {
                         tDateStart = theDate.format("yyyy-MM-dd'T'HH:mm:ss")
                         tDateEnd = theNextDate.format("yyyy-MM-dd'T'HH:mm:ss")
                         /*
+                        TO DO: Can we just ste TDates as above or do we need to do anything special depending on the below?
+
                         if(dataSource) {
                             tDateStart = theDate.format("yyyy-MM-dd'T'HH:mm:ss")
                             tDateEnd = tdataNext.date.format("yyyy-MM-dd'T'HH:mm:ss")
@@ -697,10 +703,11 @@ String getTheDevices(){
         dLabels = []
         httpGet(params) { resp ->
             if(resp!= null) {
-                theData = resp.getData().toString().split(", ")
+                def theD = resp.getData()
+                theData = theD.toString().split(", ")
                 dSize = theData.size()
                 if(logEnable) log.debug "In getTheDevices  - dSize: ${dSize}"               
-                if(dSize == 0) {
+                if(dSize == 0 || theD == "[]\n") {
                     log.trace "There is no data to process"
                 } else {
                     if(logEnable) log.debug "In getTheDevices  - Found data: ${theData}"
@@ -737,35 +744,40 @@ String readFile(fName){
     try {
         httpGet(params) { resp ->
             if(resp!= null) {
-                theData = resp.getData().toString().split(", ")
+                def theD = resp.getData()
+                theData = theD.toString().split(", ")
                 dSize = theData.size()
                 if(logEnable) log.debug "In readFile  - dSize: ${dSize} - dataType: ${dataType}"               
-                if(dSize == 0) {
+                if(dSize == 0 || theD == "[]\n") {
                     if(logEnable) log.debug "In readFile - There is no data to process"
-                } else {
+                } else {                    
+                    def xMax = 1
                     if(dataType == "rawdata") {
-                        newData = []
-                        newData = theData
-                        state.isData = true
-                    } else if(dataType == "duration") {
-                        if(logEnable) log.debug "In readFile - Duration Events"
-                        newData = []
-                        def today = new Date()
-                        def theDate = today
-                        if(thedays == "99") theDays = "1"
-                        for(x=1;x<=theDays.toInteger();x++) {
-                            String tDate = theDate.format("yyyy-MM-dd")
-                            if(logEnable) log.debug "In readFile - Duration ***** Checking file for tDate: $tDate *****"
-                            theData.each { el ->
-                                if(logEnable) log.debug "In readFile - Checking ${el} -VS- ${tDate}"
-                                if(el.toString().contains("${tDate}")) {
-                                    newData << el
-                                    state.isData = true
-                                }
+                        if(theDays == "99") xMax = 2
+                        else if(theDays == "999") xMax = 1
+                        else xMax = 1 + theDays.toInteger()
+                    }
+                    else if(dataType == "duration") {
+                        if(theDays == "999") xMax = 7  // TO DO: figure out what xMax should be here?
+                        else xMax = 1 + theDays.toInteger()
+                    }
+                    if(logEnable) log.debug "In readFile - Duration ***** Iterating through file with xMax: ${xMax} *****"
+                    
+                    newData = []
+                    def today = new Date()
+                    def theDate = today                    
+                    for(x=1;x<=xMax;x++) {
+                        String tDate = theDate.format("yyyy-MM-dd")
+                        if(logEnable) log.debug "In readFile - Duration ***** Checking file for tDate: $tDate *****"
+                        theData.each { el ->
+                            if(logEnable) log.debug "In readFile - Checking ${el} -VS- ${tDate}"
+                            if(el.toString().contains("${tDate}")) {
+                                newData << el
+                                state.isData = true
                             }
-                            theDate = today - x
-                            if(logEnable) log.debug "In readFile ----------------------------------------------------------------------------------"
                         }
+                        theDate = today - x
+                        if(logEnable) log.debug "In readFile ----------------------------------------------------------------------------------"
                     }
  
                     if(state.isData) {
