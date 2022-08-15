@@ -465,7 +465,7 @@ def eventChartingHandler(eventMap) {
                                 }
                             } else {
                                 theDate = Date.parse("yyyy-MM-dd", tdata.date.toString())
-                                tDate = theDate.format("EEE hh:mm")
+                                tDate = theDate.format("EEE")
                             }
                         }
                         if(decimals == "None") {
