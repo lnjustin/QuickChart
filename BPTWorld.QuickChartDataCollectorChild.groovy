@@ -115,6 +115,7 @@ def pageConfig() {
                         if (theType != attType) areTypesEqual = false
                     }                    
                     if (!areTypesEqual) paragraph "*Selected attributes are not all of the same type*"
+                    state.isNumericalData = attType.toLowerCase() == "number" ? true : false
                 }
             } else if(dataType == "duration") {
                 input "theDevices", "capability.*", title: "Select Device", multiple:true, submitOnChange:true
@@ -128,6 +129,7 @@ def pageConfig() {
                     }
                     devAtt = allAttrs.unique().sort()                
                     input "theAttr", "enum", title: "Select the Attributes<br><small>All devices must share this same attribute.</small>", options: devAtt, multiple:false, submitOnChange:true
+                    state.isNumericalData = true
                 }
             }
         }
@@ -166,12 +168,7 @@ def pageConfig() {
 
                 input "recordAll", "bool", title: "Record data even if it's the same as previous value", defaultValue:false, submitOnChange:true    
                 if (theAttr) {
-                    def attType = null
-                    theAttr.each { att ->                        
-                        theType = attTypes[att]
-                        if (attType == null) attType = theType
-                    }
-                    if (attType == "number" && !recordAll) {
+                    if (state.isNumericalData && !recordAll) {
                         input "diffPerc", "bool", title: "Use value difference (off) OR percentage difference (on)", defaultValue:false, submitOnChange:true
                         if(diffPerc) {
                             paragraph "* Using Percentage Difference"
@@ -181,7 +178,7 @@ def pageConfig() {
                         input "diff", "number", title: "Difference from previous value to record a data point (range: 0..100)", range: '0..100', defaultValue:0, submitOnChange:true
                     }
                 }
-                input "dataPoints", "number", title: "How many data point to keep per option", submitOnChange:true
+                input "dataPoints", "number", title: "How many data point to keep per option", submitOnChange:true, required: true
                 if(updateTime && dataPoints) {
                     if(updateTime == "manual" || updateTime == "realTime") {
                         if(updateTime == "manual") {
@@ -381,7 +378,8 @@ def durationHandler(evt) {
                 timeDiff = (unxNow-unxPrev)
                 if(logEnable) log.debug "In durationHandler - ${deviceName}: timeDiff in Seconds: ${timeDiff}"
                 ta = theAttr.toString().replace("[","").replace("]","")
-                listData = "${deviceName};${ta.capitalize()};${now};${timeDiff};Final"                  
+                def nowStr = now.format("yyyy-MM-dd HH:mm:ss.SSS")
+                listData = "${deviceName};${ta.capitalize()};${nowStr};${timeDiff};Final"                  
                 state.eventList << listData
                 state.deviceStartMap.remove(deviceName)
 		durationUpdater()
@@ -409,7 +407,8 @@ def durationUpdater() {
                     timeDiff = (unxNow-unxPrev)
                     if(logEnable) log.debug "In durationUpdater - ${deviceName}: timeDiff in Seconds: ${timeDiff}"
                     ta = theAttr.toString().replace("[","").replace("]","")
-                    listData = "${deviceName};${ta.capitalize()};${now};${timeDiff};Pending"                  
+                    def nowStr = now.format("yyyy-MM-dd HH:mm:ss.SSS")
+                    listData = "${deviceName};${ta.capitalize()};${nowStr};${timeDiff};Pending"                  
                     state.eventList << listData
                     // Keep deviceName in deviceStartMap, so can update again if needed
                     
@@ -447,7 +446,8 @@ def durationFileMaint() {
                     timeDiff = (unxNow-unxPrev)
                     if(logEnable) log.debug "In durationFileMaint - ${deviceName}: timeDiff in Seconds: ${timeDiff} as of ${lastNight}"
                     ta = theAttr.toString().replace("[","").replace("]","")
-                    listData = "${deviceName};${ta.capitalize()};${lastNight};${timeDiff};Final"                  
+                    def lastNightStr = lastNight.format("yyyy-MM-dd HH:mm:ss.SSS")
+                    listData = "${deviceName};${ta.capitalize()};${lastNightStr};${timeDiff};Final"                  
                     state.eventList << listData
                     state.deviceStartMap.remove(deviceName)
                     state.deviceStartMap.put(deviceName, midnight.getTime()) // start tracking device attribute from beginning of day
@@ -456,9 +456,9 @@ def durationFileMaint() {
         }
         
         theDate = today - 8
-        tDate = theDate.format("EEE MMM dd").toString()
+        String tDate = theDate.format("yyyy-MM-dd")
         if(logEnable) log.debug "In durationFileMaint ********** Checking file for old data - tDate: $tDate **********"
-        state.eventList.removeAll { it.toString().contains("${tDate.toString()}") }
+        state.eventList.removeAll { it.toString().contains("${tDate}") }
         if(logEnable) log.debug "In durationFileMaint - NEW: $state.eventList"
         
         saveMapHandler()
@@ -474,13 +474,12 @@ def getDataHandler(evt) {
         if(logEnable) log.debug "In getDataHandler (${state.version})"
         if(state.eventList == null) state.eventList = []
         if(state.lastMap == null) state.lastMap = [:]
-        now = new Date()
+        now = new Date().format("yyyy-MM-dd HH:mm:ss.SSS")
         theDevices.each { theDev ->
             theAttr.each { theAt ->
                 if(theDev.hasAttribute(theAt)) {
                     event = theDev.currentValue(theAt)
                     theName = "${theDev}-${theAt}".replace(" ","")
-                    attType = theAt.getDataType()
                     try{
                         prev = state.lastMap.get(theName)
                         if(prev == null) prev = 999
@@ -490,7 +489,7 @@ def getDataHandler(evt) {
                     def recordEvent = false
                     if(recordAll) recordEvent = true
                     else { 
-                        if (attType == "number") {                    
+                        if (state.isNumericalData) {                    
                             if(diffPerc) {                      
                                 theDiff = 100 * ((Math.abs(event - prev)) / prev).round(2)
                             } else {
