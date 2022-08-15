@@ -104,7 +104,7 @@ def pageConfig() {
             input "bkgrdColor", "text", title: "Background Color", defaultValue:"white", submitOnChange:true            
             input "showDevInAtt", "bool", title: "Show Device Name with Attribute in Chart Header", defaultValue:false, submitOnChange:true
             paragraph "<hr>"
-            input "dataSource", "bool", title: "Get data from file OR from device event history", defaultValue:false, submitOnChange:true
+            input "dataSource", "bool", title: "Get data from file (off) OR from device event history (on)", defaultValue:false, submitOnChange:true
             if(dataSource) {        // Event History
                 paragraph "<b>Using Device History</b><br>"
                 input "theDevice", "capability.*", title: "Select the Device(s)", multiple:true, submitOnChange:true
@@ -130,8 +130,9 @@ def pageConfig() {
                         if (attType == null) attType = theType
                         if (theType != attType) areTypesEqual = false
                     }                    
-                    if (!areTypesEqual) paragraph "*Selected attributes are not all of the same type*"
-                    else state.isNumericalData = attType == "number" ? true : false
+                    if(logEnable) log.debug "Detected attribute type: ${attType}"
+                    if (!areTypesEqual) paragraph "*Warning: Selected attributes are not all of the same type*"
+                    else state.isNumericalData = attType.toLowerCase() == "number" ? true : false
                     
                     input "labelDev", "enum", title: "Select 'Label' Device (X-Axis)", options: labelOptions, multiple:false, submitOnChange:true
                     dataType = "rawdata"
@@ -333,10 +334,11 @@ def getEventsHandler(evt) {
             if(logEnable) log.debug "In getEventsHandler (${state.version}) - Data File: ${fName}"
             readFile(fName)
             if(eventMap) {
-                if(theDays == "999") {
+                if(dataType == "rawdata") {
                     // don't have to do anymore processesing
                     eventChartingHandler(eventMap)
-                } else {
+                }
+                else {
                     dailyMap = [:]
                     eventMap.each { it ->  
                         theKey = it.key
@@ -348,11 +350,11 @@ def getEventsHandler(evt) {
                         total = 0
                         try{
                             theD.each { tdata ->
-                                theDate = new Date(tdata.date)
-                                tDay = theDate.format("EEE").toString()
-                                tHour = theDate.format("hh").toString()
-                                tDay2 = theDate.format("EEE MMM dd").toString()
-                                tDay3 = theDate.format("MMM dd").toString()
+                                
+                                theDate = Date.parse("yyyy-MM-dd HH:mm:ss.SSS", tdata.date)
+                                tDay = theDate.format("EEE")
+                                tDay3 = theDate.format("yyyy-MM-dd")
+                                
                                 if(decimals == "None") {
                                     tValue = new BigDecimal(tdata.value).setScale(0, java.math.RoundingMode.HALF_UP)
                                 } else if(decimals == "1") {
@@ -406,9 +408,6 @@ def getEventsHandler(evt) {
                         if(thuList) dailyList << [date:thuDate,value:thuTotal]
                         if(friList) dailyList << [date:friDate,value:friTotal]
                         if(satList) dailyList << [date:satDate,value:satTotal]
-                              
-                        nowDate = new Date()
-                        nowDay = nowDate.format("EEE").toString()
                         
                         if(reverseMap) {
                             dailyList = dailyList.sort { a, b -> a.date <=> b.date }
@@ -446,20 +445,23 @@ def eventChartingHandler(eventMap) {
                     } else {
                         theAtt = "${theAtt}"
                     }
-                    theD.each { tdata ->                                          
+                    theD.each { tdata ->        
+                        if(logEnable) log.debug "In eventChartingHandler -- tdata.date = ${tdata.date.toString()} --"
                         if(dataSource) {
-                            tDate = tdata.date.format("EEE hh:mm").toString()
+                            def dateObj = Date.parse("yyyy-MM-dd HH:mm:ss.SSS", tdata.date.toString())
+                            tDate = dateObj.format("EEE hh:mm")
                         } else {
-                            if(theDays == "999") {
+                            if(dataType == "rawdata") {
                                 if(tdata) {
-                                    theDate = new Date(tdata.date)
-                                    tDate = theDate.format("EEE hh:mm").toString()
+                                    theDate = Date.parse("yyyy-MM-dd HH:mm:ss.SSS", tdata.date.toString())
+                                    tDate = theDate.format("EEE hh:mm")
                                 } else {
                                     log.warn "There doesn't seem to be any data"
                                     log.warn "tdata: $tdata"
                                 }
                             } else {
-                                tDate = tdata.date.toString()
+                                theDate = Date.parse("yyyy-MM-dd", tdata.date.toString())
+                                tDate = theDate.format("EEE hh:mm")
                             }
                         }
                         if(decimals == "None") {
@@ -523,22 +525,30 @@ def eventChartingHandler(eventMap) {
                     
                     y=0
                     theD.each { tdata ->
-                        if (y < theD.size() - 1) tdataNext = theD[y+1]
-                        else {
-                            if(reverseMap) tdataNext = [value: null, date: new Date()]
-                            else tdataNext = [value: null, date: new Date()]
-                        }
+                        theDate = Date.parse("yyyy-MM-dd HH:mm:ss.SSS", tdata.date.toString())
+                        
                         if(minDate == null && !reverseMap) minDate = new Date()
-                        else if (minDate == null) minDate = tdata.date
-                        else if (minDate.after(tdata.date)) minDate = tdata.date
+                        else if (minDate == null) minDate = theDate
+                        else if (minDate.after(theDate)) minDate = theDate
                         if(maxDate == null && reverseMap) maxDate = new Date()
-                        else if (maxDate == null) maxDate = tdata.date
-                        else if (tdata.date.after(maxDate)) maxDate = tdata.date                          
+                        else if (maxDate == null) maxDate = theDate
+                        else if (theDate.after(maxDate)) maxDate = theDate  
+                            
+                        if (y < theD.size() - 1) theNextDate = Date.parse("yyyy-MM-dd HH:mm:ss.SSS", theD[y+1].date.toString())
+                        else {
+                            if(reverseMap) theNextDate = new Date()
+                            else theNextDate = new Date() // TO DO: set theNextDate to the earliest date in the chart window rather than today
+                        }      
+                            
+                        if(logEnable) log.debug "In eventChartingHandler - theDate = ${theDate} theNextDate = ${theNextDate}"
  
+                        tDateStart = theDate.format("yyyy-MM-dd'T'HH:mm:ss")
+                        tDateEnd = theNextDate.format("yyyy-MM-dd'T'HH:mm:ss")
+                        /*
                         if(dataSource) {
-                            tDateStart = tdata.date.format("yyyy-MM-dd'T'HH:mm:ss").toString()
-                            tDateEnd = tdataNext.date.format("yyyy-MM-dd'T'HH:mm:ss").toString()
-                        } else if (dataType == "duration") {
+                            tDateStart = theDate.format("yyyy-MM-dd'T'HH:mm:ss")
+                            tDateEnd = tdataNext.date.format("yyyy-MM-dd'T'HH:mm:ss")
+                        } else {
                             if(theDays == "999") {
                                 if(tdata) {
                                     theDate = new Date(tdata.date)
@@ -550,10 +560,11 @@ def eventChartingHandler(eventMap) {
                                     log.warn "tdata: $tdata"
                                 }
                             } else {
-                                tDateStart = tdata.date.format("yyyy-MM-dd'T'HH:mm:ss").toString()
+                                tDateStart = theDate.format("yyyy-MM-dd'T'HH:mm:ss").toString()
                                 tDateEnd = tdataNext.date.format("yyyy-MM-dd'T'HH:mm:ss").toString()
                             }
                         }
+                        */
                         
                         theData = []
                         for (i=0; i < x; i++) {
@@ -573,6 +584,7 @@ def eventChartingHandler(eventMap) {
                         theDataset += "{"
                         theDataset += "label:'${tdata.value}'"
                         theDataset += ",data:${theData}"
+                        theDataset += ", barThickness: 30"
                         
                         def theGreenData = ["active", "open", "locked", "present", "on", "open"]
                         def theRedData = ["inactive", "closed", "unlocked", "not present", "off", "closed"]
@@ -593,10 +605,11 @@ def eventChartingHandler(eventMap) {
                 if(logEnable) log.debug "In eventChartingHandler - the datasets: ${theDatasets}"
                 buildChart += ",data:{labels:${theLabels},datasets:${theDatasets}}"         
                 buildChart += ",options: {"     
-                buildChart += "title: {display: true,text: '${theChartTitle}'}"
-                buildChart += ",legend:{display: ${displayLegend}}"
+                buildChart += "layout: { padding: { left: 0,right: 0, top: 120,bottom: 120}}"
+                buildChart += ",title: {text: '${theChartTitle}'}"
+                if (!displayLegend) buildChart += ",legend:{display: ${displayLegend}}"
                 if (onChartValueLabels) buildChart += ",plugins: {datalabels: {anchor: 'center', display: 'auto', align:'center', color:'black', formatter: function(value,context) { return context.chart.data.datasets[context.datasetIndex].label;}}}"
-                buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, type: 'time', time: {unit: 'hour'}, ticks: {min: new Date('${minDate.format("yyyy-MM-dd'T'HH:mm:ss").toString()}'), max: new Date('${maxDate.format("yyyy-MM-dd'T'HH:mm:ss").toString()}')}, gridLines:{display: ${displayXAxisGrid}}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, gridLines:{display: ${displayYAxisGrid}}}]}"
+                buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, type: 'time', time: {unit: 'hour'}, ticks: {min: new Date('${minDate.format("yyyy-MM-dd'T'HH:mm:ss").toString()}'), max: new Date('${maxDate.format("yyyy-MM-dd'T'HH:mm:ss").toString()}')}, gridLines:{display: ${displayXAxisGrid}, drawBorder: false, zeroLineColor: 'rgba(0, 0, 0, 0.1)'}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, gridLines:{display: ${displayYAxisGrid}}}]}"
                 buildChart += "}}\" onclick=\"window.open(this.src)\">"
 
             }            
@@ -741,11 +754,11 @@ String readFile(fName){
                         def theDate = today
                         if(thedays == "99") theDays = "1"
                         for(x=1;x<=theDays.toInteger();x++) {
-                            tDate = theDate.format("EEE MMM dd").toString()
+                            String tDate = theDate.format("yyyy-MM-dd")
                             if(logEnable) log.debug "In readFile - Duration ***** Checking file for tDate: $tDate *****"
                             theData.each { el ->
                                 if(logEnable) log.debug "In readFile - Checking ${el} -VS- ${tDate}"
-                                if(el.toString().contains("${tDate.toString()}")) {
+                                if(el.toString().contains("${tDate}")) {
                                     newData << el
                                     state.isData = true
                                 }
