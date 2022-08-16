@@ -500,7 +500,7 @@ def eventChartingHandler(eventMap) {
                     theData = []
                 }
                 buildChart += "]},options: {"
-                buildChart += "title: {display: true,text: '${theChartTitle}'}"
+                buildChart += "title: {display: ${(theChartTitle != "" && theChartTitle != null) ? 'true' : 'false'}, text: '${theChartTitle}', fontColor: '${labelColor}'}"
                 buildChart += ",legend:{display: ${displayLegend}}"
                 if (onChartValueLabels) buildChart += ",plugins: {datalabels: {anchor: 'center', align:'center', formatter: function(value,context) { return context.chart.data.datasets[context.datasetIndex].label;}}}"
                 buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, ticks: {fontColor: '${labelColor}'}, gridLines:{display: ${displayXAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, ticks: {fontColor: '${labelColor}'}, gridLines:{display: ${displayYAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}]}"
@@ -517,12 +517,13 @@ def eventChartingHandler(eventMap) {
             def barThickness = 30
             def extraChartSpacing = 20
             def legendSpace = displayLegend ? 30 : 0
+            def titleSpace = (theChartTitle != "" && theChartTitle != null) ? 40 : 0
             def numAttributes = eventMap.size()
             
             def legendItems = []
             def uniqueLegendItemIndices = []
             
-            buildChart = "<img width='100%' src=\"https://quickchart.io/chart?f=png&bkg=$bkgrdColor&height=${(barThickness + extraChartSpacing + legendSpace)*numAttributes}&c={type:'${gType}'"
+            buildChart = "<img width='100%' src=\"https://quickchart.io/chart?f=png&bkg=$bkgrdColor&height=${ legendSpace + titleSpace + (barThickness + extraChartSpacing)*numAttributes}&c={type:'${gType}'"
             if(eventMap) {
                 x = 0
                 eventMap.each { it ->  
@@ -628,7 +629,7 @@ def eventChartingHandler(eventMap) {
                 if(logEnable) log.debug "In eventChartingHandler - the datasets: ${theDatasets}"
                 buildChart += ",data:{labels:${theLabels},datasets:${theDatasets}}"        
                 buildChart += ",options: {"     
-                buildChart += "title: {text: '${theChartTitle}'}"
+                buildChart += "title: {display: ${(theChartTitle != "" && theChartTitle != null) ? 'true' : 'false'}, text: '${theChartTitle}', fontColor: '${labelColor}'}"
                 
                 def legendFilterLogic = ""
                 for (i=0; i<=uniqueLegendItemIndices.size()-1; i++) {
