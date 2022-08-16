@@ -639,8 +639,15 @@ def eventChartingHandler(eventMap) {
                 }
                 buildChart += ",legend:{display: ${displayLegend}, labels: { filter: function(item, chartData) { return ${legendFilterLogic}}}}"
                 
+                def displayFormat = 'ha'
+                if (theDays == "999") displayFormat = 'ha'
+                else displayFormat = 'ddd ha'
+                
+                def maxRotation = 0
+                if (theDays != "999") maxRotation = 75
+                
                 if (onChartValueLabels) buildChart += ",plugins: {datalabels: {anchor: 'center', display: 'auto', align:'center', color:'black', formatter: function(value,context) { return context.chart.data.datasets[context.datasetIndex].label;}}}"
-                buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, type: 'time', time: {unit: 'hour'}, ticks: {fontColor: '${labelColor}', maxRotation: 0, min: new Date('${minDate.format("yyyy-MM-dd'T'HH:mm:ss").toString()}'), max: new Date('${maxDate.format("yyyy-MM-dd'T'HH:mm:ss").toString()}')}, gridLines:{display: ${displayXAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}', tickMarkLength: 5, drawBorder: false}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, ticks: {fontColor: '${labelColor}'}, gridLines:{display: ${displayYAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}]}"
+                buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, type: 'time', unit: 'hour', time: {displayFormats: {'hour': '${displayFormat}'}}, ticks: {fontColor: '${labelColor}', maxRotation: ${maxRotation}, min: new Date('${minDate.format("yyyy-MM-dd'T'HH:mm:ss").toString()}'), max: new Date('${maxDate.format("yyyy-MM-dd'T'HH:mm:ss").toString()}')}, gridLines:{display: ${displayXAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}', tickMarkLength: 5, drawBorder: false}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, ticks: {fontColor: '${labelColor}'}, gridLines:{display: ${displayYAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}]}"
                 buildChart += "}}\" onclick=\"window.open(this.src)\">"
 
             }            
