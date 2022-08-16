@@ -101,7 +101,9 @@ def pageConfig() {
         section(getFormat("header-green", "${getImage("Blank")}"+" Chart Options")) {
             input "gType", "enum", title: "Chart Style", options: ["bar","line", "horizontalBar","radar","pie","doughnut","polar","scatter","bubble","radialGauge","violin","sparkline","progressBar",""], submitOnChange:true, width:6
             input "theChartTitle", "text", title: "Chart Title", submitOnChange:true, width:6            
-            input "bkgrdColor", "text", title: "Background Color", defaultValue:"white", submitOnChange:true            
+            input "bkgrdColor", "text", title: "Background Color", defaultValue:"white", submitOnChange:false
+            input "gridColor", "text", title: "Grid Color", defaultValue:"black", submitOnChange:false 
+            input "labelColor", "text", title: "Label Color", defaultValue:"black", submitOnChange:false
             input "showDevInAtt", "bool", title: "Show Device Name with Attribute in Chart Header", defaultValue:false, submitOnChange:true
             paragraph "<hr>"
             input "dataSource", "bool", title: "Get data from file (off) OR from device event history (on)", defaultValue:false, submitOnChange:true
@@ -501,7 +503,7 @@ def eventChartingHandler(eventMap) {
                 buildChart += "title: {display: true,text: '${theChartTitle}'}"
                 buildChart += ",legend:{display: ${displayLegend}}"
                 if (onChartValueLabels) buildChart += ",plugins: {datalabels: {anchor: 'center', align:'center', formatter: function(value,context) { return context.chart.data.datasets[context.datasetIndex].label;}}}"
-                buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, gridLines:{display: ${displayXAxisGrid}}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, gridLines:{display: ${displayYAxisGrid}}}]}"
+                buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, ticks: {fontColor: '${labelColor}'}, gridLines:{display: ${displayXAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, ticks: {fontColor: '${labelColor}'}, gridLines:{display: ${displayYAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}]}"
                 buildChart += "}}\" onclick=\"window.open(this.src)\">"
             }
         }
@@ -598,7 +600,6 @@ def eventChartingHandler(eventMap) {
                   
                         if (y>0) theDataset += ","
                         theDataset += "{"
-                    //    theDataset += "label:'${tdata.value}${legendItems.contains(tdata.value) ? "*" : ""}'"
                         theDataset += "label:'${tdata.value}'"
                         theDataset += ",data:${theData}"
                         theDataset += ", barThickness: ${barThickness}"
@@ -637,7 +638,7 @@ def eventChartingHandler(eventMap) {
                 buildChart += ",legend:{display: ${displayLegend}, labels: { filter: function(item, chartData) { return ${legendFilterLogic}}}}"
                 
                 if (onChartValueLabels) buildChart += ",plugins: {datalabels: {anchor: 'center', display: 'auto', align:'center', color:'black', formatter: function(value,context) { return context.chart.data.datasets[context.datasetIndex].label;}}}"
-                buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, type: 'time', time: {unit: 'hour'}, ticks: {maxRotation: 0, min: new Date('${minDate.format("yyyy-MM-dd'T'HH:mm:ss").toString()}'), max: new Date('${maxDate.format("yyyy-MM-dd'T'HH:mm:ss").toString()}')}, gridLines:{display: ${displayXAxisGrid}, tickMarkLength: 5, drawBorder: false, zeroLineColor: 'rgba(0, 0, 0, 0.1)'}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, gridLines:{display: ${displayYAxisGrid}}}]}"
+                buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, type: 'time', time: {unit: 'hour'}, ticks: {fontColor: '${labelColor}', maxRotation: 0, min: new Date('${minDate.format("yyyy-MM-dd'T'HH:mm:ss").toString()}'), max: new Date('${maxDate.format("yyyy-MM-dd'T'HH:mm:ss").toString()}')}, gridLines:{display: ${displayXAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}', tickMarkLength: 5, drawBorder: false}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, ticks: {fontColor: '${labelColor}'}, gridLines:{display: ${displayYAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}]}"
                 buildChart += "}}\" onclick=\"window.open(this.src)\">"
 
             }            
