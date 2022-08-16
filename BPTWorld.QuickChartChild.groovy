@@ -265,7 +265,7 @@ def updated() {
 }
 
 def initialize() {
-    createAccessToken()
+    if(!state.accessToken) createAccessToken()
     checkEnableHandler()
     if(pauseApp) {
         log.info "${app.label} is Paused"
