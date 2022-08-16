@@ -101,10 +101,12 @@ def pageConfig() {
         section(getFormat("header-green", "${getImage("Blank")}"+" Chart Options")) {
             input "gType", "enum", title: "Chart Style", options: ["bar","line", "horizontalBar","radar","pie","doughnut","polar","scatter","bubble","radialGauge","violin","sparkline","progressBar",""], submitOnChange:true, width:6
             input "theChartTitle", "text", title: "Chart Title", submitOnChange:true, width:6            
-            input "bkgrdColor", "text", title: "Background Color", defaultValue:"white", submitOnChange:false
-            input "gridColor", "text", title: "Grid Color", defaultValue:"black", submitOnChange:false 
-            input "labelColor", "text", title: "Label Color", defaultValue:"black", submitOnChange:false
-            input "showDevInAtt", "bool", title: "Show Device Name with Attribute in Chart Header", defaultValue:false, submitOnChange:true
+            input "bkgrdColor", "text", title: "Background Color", defaultValue:"white", submitOnChange:false, width: 4
+            input "gridColor", "text", title: "Grid Color", defaultValue:"black", submitOnChange:false, width: 4
+            input "labelColor", "text", title: "Label Color", defaultValue:"black", submitOnChange:false, width: 4
+            input "showDevInAtt", "bool", title: "Show Device Name with Attribute on Axes", defaultValue:false, submitOnChange:true, width: 6
+            input "onChartValueLabels", "bool", title: "Show Attribute Values as On-Chart Labels", defaultValue:false, submitOnChange:false, width: 6
+            input "displayLegend", "bool", title: "Show Legend", defaultValue:true, submitOnChange:false, width: 6
             paragraph "<hr>"
             input "dataSource", "bool", title: "Get data from file (off) OR from device event history (on)", defaultValue:false, submitOnChange:true
             if(dataSource) {        // Event History
@@ -211,16 +213,15 @@ def pageConfig() {
             ], defaultValue:"manual", submitOnChange:true 
             input "reverseMap", "bool", title: "Reverse Map Output", defaultValue:false, submitOnChange:true
             
-            input "displayXAxis", "bool", title: "Display X-Axis", defaultValue:true, submitOnChange:false, width: 4
-            input "displayXAxisGrid", "bool", title: "Display X-Axis Gridlines", defaultValue:true, submitOnChange:false, width: 4
+            input "displayXAxis", "bool", title: "Show X-Axis", defaultValue:true, submitOnChange:false, width: 4
+            input "displayXAxisGrid", "bool", title: "Show X-Axis Gridlines", defaultValue:true, submitOnChange:false, width: 4
             input "stackXAxis", "bool", title: "Stack X-Axis Data", defaultValue:false, submitOnChange:false, width: 4            
             
-            input "displayYAxis", "bool", title: "Display Y-Axis", defaultValue:true, submitOnChange:false, width: 4
-            input "displayYAxisGrid", "bool", title: "Display Y-Axis Gridlines", defaultValue:true, submitOnChange:false, width: 4
+            input "displayYAxis", "bool", title: "Show Y-Axis", defaultValue:true, submitOnChange:false, width: 4
+            input "displayYAxisGrid", "bool", title: "Show Y-Axis Gridlines", defaultValue:true, submitOnChange:false, width: 4
             input "stackYAxis", "bool", title: "Stack Y-Axis Data", defaultValue:false, submitOnChange:false, width: 4
             
-            input "displayLegend", "bool", title: "Display Legend", defaultValue:true, submitOnChange:false, width: 4
-            input "onChartValueLabels", "bool", title: "Display Values as On-Chart Labels", defaultValue:false, submitOnChange:false, width: 4
+            
             paragraph "<hr>"
         }
     
