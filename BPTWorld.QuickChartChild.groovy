@@ -121,18 +121,19 @@ def pageConfig() {
                         }
                     }
                     devAtt = allAttrs.unique().sort()
-                    input "theAtt", "enum", title: "Select the Attribute(s)<br><small>All attributes must be the same type (string,number,etc.).</small>", options: devAtt, multiple:true, submitOnChange:true
+                    input "theAtt", "enum", title: "Select the Attribute(s)<br><small>Attributes must be either all numbers or all non-numbers.</small>", options: devAtt, multiple:true, submitOnChange:true
                     
-                    def areTypesEqual = true
-                    def attType = null
+                    def anyNonNumber = false
+                    def anyNumber = false
                     theAtt.each { att ->                        
                         theType = attTypes[att]
-                        if (attType == null) attType = theType
-                        if (theType != attType) areTypesEqual = false
+                        if (theType.toLowerCase() == "number") anyNumber = true
+                        else anyNonNumber = true
                     }                    
                     if(logEnable) log.debug "Detected attribute type: ${attType}"
-                    if (!areTypesEqual) paragraph "*Warning: Selected attributes are not all of the same type*"
-                    else state.isNumericalData = attType.toLowerCase() == "number" ? true : false
+                    if (anyNumber && anyNonNumber) paragraph "*Warning: Selected attributes are not all numbers or all non-numbers as required*"
+                    else if (anyNumber && !anyNonNumber) state.isNumericalData = true
+                    else if (!anyNumber && anyNonNumber) state.isNumericalData = false
                     
                     input "labelDev", "enum", title: "Select 'Label' Device (X-Axis)", options: labelOptions, multiple:false, submitOnChange:true
                     dataType = "rawdata"
@@ -510,7 +511,16 @@ def eventChartingHandler(eventMap) {
             theDatasets = []
             def minDate = null
             def maxDate = null
-            buildChart = "<img width='100%' src=\"https://quickchart.io/chart?f=png&bkg=$bkgrdColor&c={type:'${gType}'"
+            
+            def barThickness = 30
+            def extraChartSpacing = 20
+            def legendSpace = displayLegend ? 30 : 0
+            def numAttributes = eventMap.size()
+            
+            def legendItems = []
+            def uniqueLegendItemIndices = []
+            
+            buildChart = "<img width='100%' src=\"https://quickchart.io/chart?f=png&bkg=$bkgrdColor&height=${(barThickness + extraChartSpacing + legendSpace)*numAttributes}&c={type:'${gType}'"
             if(eventMap) {
                 x = 0
                 eventMap.each { it ->  
@@ -588,9 +598,15 @@ def eventChartingHandler(eventMap) {
                   
                         if (y>0) theDataset += ","
                         theDataset += "{"
+                    //    theDataset += "label:'${tdata.value}${legendItems.contains(tdata.value) ? "*" : ""}'"
                         theDataset += "label:'${tdata.value}'"
                         theDataset += ",data:${theData}"
-                        theDataset += ", barThickness: 30"
+                        theDataset += ", barThickness: ${barThickness}"
+                        
+                        if (!legendItems.contains(tdata.value)) {
+                            legendItems.add(tdata.value)
+                            uniqueLegendItemIndices.add(x+y)
+                        }
                         
                         def theGreenData = ["active", "open", "locked", "present", "on", "open"]
                         def theRedData = ["inactive", "closed", "unlocked", "not present", "off", "closed"]
@@ -609,13 +625,19 @@ def eventChartingHandler(eventMap) {
                 }
                 
                 if(logEnable) log.debug "In eventChartingHandler - the datasets: ${theDatasets}"
-                buildChart += ",data:{labels:${theLabels},datasets:${theDatasets}}"         
+                buildChart += ",data:{labels:${theLabels},datasets:${theDatasets}}"        
                 buildChart += ",options: {"     
-                buildChart += "layout: { padding: { left: 0,right: 0, top: 120,bottom: 120}}"
-                buildChart += ",title: {text: '${theChartTitle}'}"
-                if (!displayLegend) buildChart += ",legend:{display: ${displayLegend}}"
+                buildChart += "title: {text: '${theChartTitle}'}"
+                
+                def legendFilterLogic = ""
+                for (i=0; i<=uniqueLegendItemIndices.size()-1; i++) {
+                    legendFilterLogic += "item.datasetIndex == ${uniqueLegendItemIndices[i]}"
+                    if (i < uniqueLegendItemIndices.size()-1) legendFilterLogic += " || "
+                }
+                buildChart += ",legend:{display: ${displayLegend}, labels: { filter: function(item, chartData) { return ${legendFilterLogic}}}}"
+                
                 if (onChartValueLabels) buildChart += ",plugins: {datalabels: {anchor: 'center', display: 'auto', align:'center', color:'black', formatter: function(value,context) { return context.chart.data.datasets[context.datasetIndex].label;}}}"
-                buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, type: 'time', time: {unit: 'hour'}, ticks: {min: new Date('${minDate.format("yyyy-MM-dd'T'HH:mm:ss").toString()}'), max: new Date('${maxDate.format("yyyy-MM-dd'T'HH:mm:ss").toString()}')}, gridLines:{display: ${displayXAxisGrid}, drawBorder: false, zeroLineColor: 'rgba(0, 0, 0, 0.1)'}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, gridLines:{display: ${displayYAxisGrid}}}]}"
+                buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, type: 'time', time: {unit: 'hour'}, ticks: {maxRotation: 0, min: new Date('${minDate.format("yyyy-MM-dd'T'HH:mm:ss").toString()}'), max: new Date('${maxDate.format("yyyy-MM-dd'T'HH:mm:ss").toString()}')}, gridLines:{display: ${displayXAxisGrid}, tickMarkLength: 5, drawBorder: false, zeroLineColor: 'rgba(0, 0, 0, 0.1)'}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, gridLines:{display: ${displayYAxisGrid}}}]}"
                 buildChart += "}}\" onclick=\"window.open(this.src)\">"
 
             }            
