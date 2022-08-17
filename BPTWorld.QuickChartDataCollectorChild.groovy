@@ -324,6 +324,8 @@ def initialize() {
             } else if(updateTime == "3hour") {
                 runEvery3Hours(getDataHandler)
             }
+            schedule("59 59 23 ? * * *", rawDataFileMaint, [overwrite:false]) // record last value of the day
+            schedule("1 0 0 ? * * *", rawDataFileMaint, [overwrite:false]) // record first value of the day
         }
         
         if(dataType == "duration") {
@@ -544,6 +546,36 @@ def saveMapHandler() {
     } else {
         log.info "Quick Chart Data Collector - Please provide a File Name to save the data."
     }
+}
+
+def rawDataFileMaint() {
+    checkEnableHandler()
+    if(pauseApp || state.eSwitch) {
+        log.info "${app.label} is Paused or Disabled"
+    } else {
+        if(logEnable) log.debug "------------------------------------------------------------------------------"
+        if(logEnable) log.debug "In rawDataFileMaint (${state.version})"
+        if(state.eventList == null) state.eventList = []
+        if(state.lastMap == null) state.lastMap = [:]
+        now = new Date().format("yyyy-MM-dd HH:mm:ss.SSS")
+        theDevices.each { theDev ->
+            theAttr.each { theAt ->
+                if(theDev.hasAttribute(theAt)) {
+                    event = theDev.currentValue(theAt)
+                    theName = "${theDev}-${theAt}".replace(" ","")
+                    // record attribute values at the start and end of the day
+                     if(logEnable) log.debug "In rawDataFileMaint - Recording ${theDev};${theAt.capitalize()};${now};${event}"
+                     listData = "${theDev};${theAt.capitalize()};${now};${event};Final"
+                     state.eventList << listData
+                     if(logEnable) log.debug "In getDataHandler - Saving prev - ${theName} - ${event}"
+                     state.lastMap.put(theName,event)                                          
+                }
+                log.trace "lastMap: ${state.lastMap}"
+                checkPointsHandler()
+            }
+        }
+        saveMapHandler()
+    }    
 }
 
 def login() {        // Modified from code by @dman2306
