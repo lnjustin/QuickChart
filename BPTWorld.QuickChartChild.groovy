@@ -339,9 +339,20 @@ def getEventsHandler(evt) {
             if(logEnable) log.debug "In getEventsHandler (${state.version}) - Data File: ${fName}"
             readFile(fName)
             if(eventMap) {
-                if(dataType == "rawdata") {
-                    // don't have to do anymore processesing
-                    eventChartingHandler(eventMap)
+                if(dataType == "rawdata") { 
+                  //  if(logEnable) log.debug "In getEventsHandler - eventMap before sorting: ${eventMap}"
+                    def sortedMap = [:]
+                    if(reverseMap) {
+                        eventMap.each { key, value ->
+                            sortedMap[key] = value.sort { a, b -> Date.parse("yyyy-MM-dd HH:mm:ss.SSS", a.date) <=> Date.parse("yyyy-MM-dd HH:mm:ss.SSS", b.date) }
+                        }
+                     } else {
+                         eventMap.each { key, value ->
+                            sortedMap[key] = value.sort { a, b -> Date.parse("yyyy-MM-dd HH:mm:ss.SSS", b.date) <=> Date.parse("yyyy-MM-dd HH:mm:ss.SSS", a.date) }
+                        }
+                     }    
+                  //  if(logEnable) log.debug "In getEventsHandler - eventMap after sorting: ${sortedMap}"
+                    eventChartingHandler(sortedMap)
                 }
                 else if(theDays == "999") {
                     // don't have to do anymore processesing
