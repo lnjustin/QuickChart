@@ -514,8 +514,28 @@ def eventChartingHandler(eventMap) {
             if(logEnable) log.debug "In eventChartingHandler -- Building Non-Numerical Chart --"
             theLabels = []
             theDatasets = []
+            
+            Date today = new Date()
+            Date startOfToday = today.clearTime()
+            Calendar cal = Calendar.getInstance()
+            cal.setTimeZone(location.timeZone)
+            cal.setTime(startOfToday + 1)
+            cal.add(Calendar.SECOND, -1)
+            Date endOfToday = cal.getTime()
+            
             def minDate = null
             def maxDate = null
+            def dayOffset = 0            
+            if (theDays != "999" && theDays != "99") dayOffset = theDays.toInteger()
+            
+            if(!reverseMap) {
+                minDate = endOfToday
+                maxDate = startOfToday - dayOffset
+            }
+            if(reverseMap) {
+                maxDate = endOfToday
+                minDate = startOfToday - dayOffset
+            }
             
             def barThickness = 30
             def extraChartSpacing = 20
@@ -547,13 +567,15 @@ def eventChartingHandler(eventMap) {
                     theD.each { tdata ->
                         theDate = Date.parse("yyyy-MM-dd HH:mm:ss.SSS", tdata.date.toString())
                         
+                        /* Sets min/max dates based on data, rather than theDays variable - probably the wrong way to do it?
                         if(minDate == null && !reverseMap) minDate = new Date()
                         else if (minDate == null) minDate = theDate
                         else if (minDate.after(theDate)) minDate = theDate
                         if(maxDate == null && reverseMap) maxDate = new Date()
                         else if (maxDate == null) maxDate = theDate
                         else if (theDate.after(maxDate)) maxDate = theDate  
-                            
+                          */
+                        
                         if (y < theD.size() - 1) theNextDate = Date.parse("yyyy-MM-dd HH:mm:ss.SSS", theD[y+1].date.toString())
                         else {
                             // last date will either be the latest date (today) or the earliest date depending on reverseMap
@@ -768,9 +790,7 @@ String readFile(fName){
                 } else {                    
                     def xMax = 1
                     if(dataType == "rawdata") {
-                        if(theDays == "99") xMax = 2
-                        else if(theDays == "999") xMax = 1
-                        else xMax = 1 + theDays.toInteger()
+                        if(theDays != "99" && theDays != "999") xMax = 1 + theDays.toInteger()
                     }
                     else if(dataType == "duration") {
                         if(theDays == "999") xMax = 7  // TO DO: figure out what xMax should be here? What does "every event" mean?
