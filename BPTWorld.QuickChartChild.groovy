@@ -554,37 +554,15 @@ def eventChartingHandler(eventMap) {
                             
                         if (y < theD.size() - 1) theNextDate = Date.parse("yyyy-MM-dd HH:mm:ss.SSS", theD[y+1].date.toString())
                         else {
+                            // last date will either be the latest date (today) or the earliest date depending on reverseMap
                             if(reverseMap) theNextDate = new Date()
-                            else theNextDate = new Date() // TO DO: set theNextDate to the earliest date in the chart window rather than today
+                            else theNextDate = minDate
                         }      
                             
                         if(logEnable) log.debug "In eventChartingHandler - theDate = ${theDate} theNextDate = ${theNextDate}"
  
                         tDateStart = theDate.format("yyyy-MM-dd'T'HH:mm:ss")
                         tDateEnd = theNextDate.format("yyyy-MM-dd'T'HH:mm:ss")
-                        /*
-                        TO DO: Can we just ste TDates as above or do we need to do anything special depending on the below?
-
-                        if(dataSource) {
-                            tDateStart = theDate.format("yyyy-MM-dd'T'HH:mm:ss")
-                            tDateEnd = tdataNext.date.format("yyyy-MM-dd'T'HH:mm:ss")
-                        } else {
-                            if(theDays == "999") {
-                                if(tdata) {
-                                    theDate = new Date(tdata.date)
-                                    tDateStart = theDate.format("yyyy-MM-dd'T'HH:mm:ss").toString()
-                                    theDateEnd = new Date(tdataNext.date)
-                                    tDateEnd = theDateEnd.format("yyyy-MM-dd'T'HH:mm:ss").toString()                                    
-                                } else {
-                                    log.warn "There doesn't seem to be any data"
-                                    log.warn "tdata: $tdata"
-                                }
-                            } else {
-                                tDateStart = theDate.format("yyyy-MM-dd'T'HH:mm:ss").toString()
-                                tDateEnd = tdataNext.date.format("yyyy-MM-dd'T'HH:mm:ss").toString()
-                            }
-                        }
-                        */
                         
                         theData = []
                         for (i=0; i < x; i++) {
@@ -790,7 +768,7 @@ String readFile(fName){
                         else xMax = 1 + theDays.toInteger()
                     }
                     else if(dataType == "duration") {
-                        if(theDays == "999") xMax = 7  // TO DO: figure out what xMax should be here?
+                        if(theDays == "999") xMax = 7  // TO DO: figure out what xMax should be here? What does "every event" mean?
                         else xMax = 1 + theDays.toInteger()
                     }
                     if(logEnable) log.debug "In readFile - Duration ***** Iterating through file with xMax: ${xMax} *****"
