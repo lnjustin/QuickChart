@@ -107,6 +107,7 @@ def pageConfig() {
             input "showDevInAtt", "bool", title: "Show Device Name with Attribute on Axes", defaultValue:false, submitOnChange:true, width: 6
             input "onChartValueLabels", "bool", title: "Show Attribute Values as On-Chart Labels", defaultValue:false, submitOnChange:false, width: 6
             input "displayLegend", "bool", title: "Show Legend", defaultValue:true, submitOnChange:false, width: 6
+
             paragraph "<hr>"
             input "dataSource", "bool", title: "Get data from file (off) OR from device event history (on)", defaultValue:false, submitOnChange:true
             if(dataSource) {        // Event History
@@ -443,6 +444,7 @@ def eventChartingHandler(eventMap) {
             x=1
             theLabels = []
             theData = []
+            
             if(eventMap) {
                 eventMap.each { it ->  
                     (theDev,theAtt) = it.key.split(";")
@@ -524,7 +526,7 @@ def eventChartingHandler(eventMap) {
             def legendItems = []
             def uniqueLegendItemIndices = []
             
-            buildChart = "<img width='100%' src=\"https://quickchart.io/chart?f=png&bkg=$bkgrdColor&height=${ legendSpace + titleSpace + (barThickness + extraChartSpacing)*numAttributes}&c={type:'${gType}'"
+            buildChart = "f=png&bkg=$bkgrdColor&height=${ legendSpace + titleSpace + (barThickness + extraChartSpacing)*numAttributes}&c={type:'${gType}'"
             if(eventMap) {
                 x = 0
                 eventMap.each { it ->  
@@ -610,6 +612,7 @@ def eventChartingHandler(eventMap) {
                 buildChart += ",options: {"     
                 buildChart += "title: {display: ${(theChartTitle != "" && theChartTitle != null) ? 'true' : 'false'}, text: '${theChartTitle}', fontColor: '${labelColor}'}"
                 
+                // filter out redundant legend items
                 def legendFilterLogic = ""
                 for (i=0; i<=uniqueLegendItemIndices.size()-1; i++) {
                     legendFilterLogic += "item.datasetIndex == ${uniqueLegendItemIndices[i]}"
@@ -625,9 +628,11 @@ def eventChartingHandler(eventMap) {
                 if (theDays != "999") maxRotation = 75
                 
                 if (onChartValueLabels) buildChart += ",plugins: {datalabels: {anchor: 'center', display: 'auto', align:'center', color:'black', formatter: function(value,context) { return context.chart.data.datasets[context.datasetIndex].label;}}}"
-                buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, type: 'time', unit: 'hour', time: {displayFormats: {'hour': '${displayFormat}'}}, ticks: {fontColor: '${labelColor}', maxRotation: ${maxRotation}, min: new Date('${minDate.format("yyyy-MM-dd'T'HH:mm:ss").toString()}'), max: new Date('${maxDate.format("yyyy-MM-dd'T'HH:mm:ss").toString()}')}, gridLines:{display: ${displayXAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}', tickMarkLength: 5, drawBorder: false}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, ticks: {fontColor: '${labelColor}'}, gridLines:{display: ${displayYAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}]}"
-                buildChart += "}}\" onclick=\"window.open(this.src)\">"
-
+                buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, type: 'time', unit: 'hour', time: {displayFormats: {'hour': '${displayFormat}'}}, ticks: {fontColor: '${labelColor}', maxRotation: ${maxRotation}, ${minDate != null && maxDate != null ? "min: new Date('" + minDate.format("yyyy-MM-dd'T'HH:mm:ss").toString() + "'), max: new Date('" + maxDate.format("yyyy-MM-dd'T'HH:mm:ss").toString() + "')" : ""}}, gridLines:{display: ${displayXAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}', tickMarkLength: 5, drawBorder: false}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, ticks: {fontColor: '${labelColor}'}, gridLines:{display: ${displayYAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}]}"
+                buildChart += "}}"
+                
+                if(logEnable) log.debug "In eventChartingHandler - buildChart arguments: ${buildChart}"
+                buildChart = "<img width='100%' src=\"https://quickchart.io/chart?" + buildChart + "\" onclick=\"window.open(this.src)\">"
             }            
         }
         
