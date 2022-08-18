@@ -99,7 +99,7 @@ def pageConfig() {
         }
         
         section(getFormat("header-green", "${getImage("Blank")}"+" Chart Options")) {
-            input "gType", "enum", title: "Chart Style", options: ["bar","line", "horizontalBar","radar","pie","doughnut","polar","scatter","bubble","radialGauge","violin","sparkline","progressBar",""], submitOnChange:true, width:6
+            input "gType", "enum", title: "Chart Style", options: ["bar","line", "horizontalBar","stateTiming","radar","pie","doughnut","polar","scatter","bubble","radialGauge","violin","sparkline","progressBar",""], submitOnChange:true, width:6, required: true
             input "theChartTitle", "text", title: "Chart Title", submitOnChange:true, width:6            
             input "bkgrdColor", "text", title: "Background Color", defaultValue:"white", submitOnChange:false, width: 4
             input "gridColor", "text", title: "Grid Color", defaultValue:"black", submitOnChange:false, width: 4
@@ -112,7 +112,7 @@ def pageConfig() {
             input "dataSource", "bool", title: "Get data from file (off) OR from device event history (on)", defaultValue:false, submitOnChange:true
             if(dataSource) {        // Event History
                 paragraph "<b>Using Device History</b><br>"
-                input "theDevice", "capability.*", title: "Select the Device(s)", multiple:true, submitOnChange:true
+                input "theDevice", "capability.*", title: "Select the Device(s)", multiple:true, submitOnChange:true, required: true
                 if(theDevice) {
                     labelOptions = []
                     allAttrs = []
@@ -126,7 +126,7 @@ def pageConfig() {
                         }
                     }
                     devAtt = allAttrs.unique().sort()
-                    input "theAtt", "enum", title: "Select the Attribute(s)<br><small>Attributes must be either all numbers or all non-numbers.</small>", options: devAtt, multiple:true, submitOnChange:true
+                    input "theAtt", "enum", title: "Select the Attribute(s)<br><small>Attributes must be either all numbers or all non-numbers.</small>", options: devAtt, multiple:true, submitOnChange:true, required: true
                     
                     def anyNonNumber = false
                     def anyNumber = false
@@ -155,7 +155,7 @@ def pageConfig() {
                 }
                 getFileList()
                 if(fileList) {
-                    input "fName", "enum", title: "Select a File", options: fileList, multiple:false, submitOnChange:true
+                    input "fName", "enum", title: "Select a File", options: fileList, multiple:false, submitOnChange:true, required: true
                     if(fileList) {
                         getTheDevices()
                         if(deviceLabels) {
@@ -169,10 +169,16 @@ def pageConfig() {
                         app.updateSetting("getList",[value:"false",type:"bool"])
                     }
                 }
-                input "dataType", "enum", title: "Select the type of data to store", options: [
-                    ["rawdata":"Raw Data Over Time - Temp,Humidity,etc."],
-                    ["duration":"How long things have been on/open/active/etc per xx"]
-                ], submitOnChange:true
+                
+                def dataTypeOptions = []
+                if (gType != "stateTiming") {
+                    dataTypeOptions = [
+                        ["rawdata":"Raw Data Over Time - Temp,Humidity,etc."],
+                        ["duration":"How long things have been on/open/active/etc per xx"]
+                    ]    
+                }
+                else dataTypeOptions = [["rawdata":"Raw Data Over Time - Temp,Humidity,etc."]]       // force charting raw data if chart type is stateTiming          
+                input "dataType", "enum", title: "Select the type of data to store", options: dataTypeOptions, submitOnChange:true, required: true
             }
             
             paragraph "<hr>"
@@ -212,16 +218,26 @@ def pageConfig() {
                 ["1hour":"Every 1 Hour"],
                 ["3hour":"Every 3 Hours"]
             ], defaultValue:"manual", submitOnChange:true 
-            input "reverseMap", "bool", title: "Reverse Map Output", defaultValue:false, submitOnChange:true
             
-            input "displayXAxis", "bool", title: "Show X-Axis", defaultValue:true, submitOnChange:false, width: 4
-            input "displayXAxisGrid", "bool", title: "Show X-Axis Gridlines", defaultValue:true, submitOnChange:false, width: 4
-            input "stackXAxis", "bool", title: "Stack X-Axis Data", defaultValue:false, submitOnChange:false, width: 4            
+            if (gType != "stateTiming") input "reverseMap", "bool", title: "Reverse Map Output", defaultValue:false, submitOnChange:true
+            // force reverseMap for stateTiming
+
+            def inputWidth = gType != "stateTiming" ? 4 : 6
             
-            input "displayYAxis", "bool", title: "Show Y-Axis", defaultValue:true, submitOnChange:false, width: 4
-            input "displayYAxisGrid", "bool", title: "Show Y-Axis Gridlines", defaultValue:true, submitOnChange:false, width: 4
-            input "stackYAxis", "bool", title: "Stack Y-Axis Data", defaultValue:false, submitOnChange:false, width: 4
+            input "displayXAxis", "bool", title: "Show X-Axis", defaultValue:true, submitOnChange:false, width: inputWidth
+            input "displayXAxisGrid", "bool", title: "Show X-Axis Gridlines", defaultValue:true, submitOnChange:false, width: inputWidth
+            if (gType != "stateTiming") input "stackXAxis", "bool", title: "Stack X-Axis Data", defaultValue:false, submitOnChange:false, width: 4            
             
+            input "displayYAxis", "bool", title: "Show Y-Axis", defaultValue:true, submitOnChange:false, width: inputWidth
+            input "displayYAxisGrid", "bool", title: "Show Y-Axis Gridlines", defaultValue:true, submitOnChange:false, width: inputWidth
+            if (gType != "stateTiming") input "stackYAxis", "bool", title: "Stack Y-Axis Data", defaultValue:false, submitOnChange:false, width: 4
+
+            if(dataType == "rawdata" && (gType == "stateTiming" || state.isNumericalData == false)) {
+                input "xAxisAnchor", "enum", title: "X-Axis Terminates", options: [
+                    ["dataEnd":"At End of Data"],
+                    ["dayEnd":"At End of Day"]
+                ], defaultValue:"dataEnd", submitOnChange:false, width: 4
+            }             
             
             paragraph "<hr>"
         }
@@ -314,6 +330,7 @@ def getEventsHandler(evt) {
                 } else {
                     days = today - theDays.toInteger()
                 }
+                if (gType == "stateTiming" || state.isNumericalData == false) days = days - 1 // if building state timing chart, retrieve states for the previous day as well, so that can determine the state at 12:00:00 AM on the first day of the chart
 
                 if(logEnable) log.debug "In getEventsHandler - theDevice: ${theDevice} - ${theAtt} - ${days} (${theDays})"
                 if(theDevice && theAtt) {
@@ -321,13 +338,35 @@ def getEventsHandler(evt) {
                     theDevice.each { theD ->
                         theAtt.each { att ->
                             if(theD.hasAttribute(att)) {
-                                if(reverseMap) {
+                                if(reverseMap || gType == "stateTiming") {  // force reverseMap for stateTiming
                                     events = theD.statesSince(att, days, [max: 2000]).collect{[ date:it.date, value:it.value]}.flatten().reverse()
                                 } else {
                                     events = theD.statesSince(att, days, [max: 2000]).collect{[ date:it.date, value:it.value]}.flatten()
                                 }
+                                if(logEnable) log.debug "In getEventsHandler - events: $events"
+                                def eventsForMap = events
+                                if (gType == "stateTiming" || state.isNumericalData == false) {
+                                    def chartDate = days + 1
+                                    if(logEnable) log.debug "In getEventsHandler - splitting events based on the first day of the chart being $chartDate"
+                                    def groupedEvents = events.groupBy{ new Date(it.date.getTime()) < chartDate}
+                                    if(logEnable) log.debug "In getEventsHandler - groupedEvents: $groupedEvents"
+                                    def preEvents = groupedEvents[true]  // all events before the first day of the chart (days + 1), for use in determining the state at 12:00:00 AM on the first date
+                                    def postEvents = groupedEvents[false] // all events after the first day of the chart (days + 1)
+                                    if(logEnable) log.debug "In getEventsHandler - preEvents: $preEvents postEvents: $postEvents"
+                                    if (preEvents != null && preEvents.size() > 0) {
+                                        def latestPreEvent = preEvents.pop()
+                                        if(logEnable) log.debug "In getEventsHandler - latestPreEvent: $latestPreEvent"
+                                        latestPreEvent.date = chartDate.format("yyyy-MM-dd HH:mm:ss.SSS") // redefine the date as being 12:00:00 AM on the first day of the chart
+                                        if(logEnable) log.debug "In getEventsHandler - latestPreEvent after date change: $latestPreEvent"
+                                        if (postEvents != null) postEvents.add(0,latestPreEvent)
+                                        if(logEnable) log.debug "In getEventsHandler - postEvents after adding latest PreEvent: $postEvents"
+                                    }
+                                    else if(logEnable) log.debug "In getEventsHandler - no event found for the previous day; unable to determine state at start of the first day of the chart"
+                                    if (postEvents != null && postEvents.size() > 0) eventsForMap = postEvents
+                                }
+                                
                                 theKey = "${theD};${att.capitalize()}"
-                                eventMap.put(theKey,events)
+                                eventMap.put(theKey,eventsForMap)
                             }
                         }
                     }
@@ -342,7 +381,7 @@ def getEventsHandler(evt) {
                 if(dataType == "rawdata") { 
                   //  if(logEnable) log.debug "In getEventsHandler - eventMap before sorting: ${eventMap}"
                     def sortedMap = [:]
-                    if(reverseMap) {
+                    if(reverseMap || gType == "stateTiming") {
                         eventMap.each { attribute, attributeEvents ->
                             sortedMap[attribute] = attributeEvents.sort { a, b -> Date.parse("yyyy-MM-dd HH:mm:ss.SSS", a.date) <=> Date.parse("yyyy-MM-dd HH:mm:ss.SSS", b.date) }
                         }
@@ -428,11 +467,11 @@ def getEventsHandler(evt) {
                         if(thuList) dailyList << [date:thuDate,value:thuTotal]
                         if(friList) dailyList << [date:friDate,value:friTotal]
                         if(satList) dailyList << [date:satDate,value:satTotal]
-                        
+
                         if(reverseMap) {
-                            dailyList = dailyList.sort { a, b -> a.date <=> b.date }
+                            dailyList = dailyList.sort { a, b -> Date.parse("yyyy-MM-dd", a.date) <=> Date.parse("yyyy-MM-dd", b.date) }
                         } else {
-                            dailyList = dailyList.sort { a, b -> b.date <=> a.date }
+                            dailyList = dailyList.sort { a, b -> Date.parse("yyyy-MM-dd", b.date) <=> Date.parse("yyyy-MM-dd", a.date) }
                         }
                         dailyMap.put(theKey,dailyList)
                     }
@@ -449,7 +488,163 @@ def eventChartingHandler(eventMap) {
     } else {
         if(logEnable) log.debug "In eventChartingHandler (${state.version}) - Device Events"
 
-        if (state.isNumericalData) {
+        if (gType == "stateTiming" || state.isNumericalData == false)  {
+            if(logEnable) log.debug "In eventChartingHandler -- Building Non-Numerical Chart --"
+            theLabels = []
+            theDatasets = []
+            
+            Date today = new Date()
+            Date startOfToday = today.clearTime()
+            Calendar cal = Calendar.getInstance()
+            cal.setTimeZone(location.timeZone)
+            cal.setTime(startOfToday + 1)
+            cal.add(Calendar.SECOND, -1)
+            Date endOfToday = cal.getTime()
+            
+            def minDate = null
+            def maxDate = null
+            def dayOffset = 0            
+            if (theDays != "999" && theDays != "99") dayOffset = theDays.toInteger()
+            
+            if (xAxisAnchor == "dayEnd") {
+                if(gType == "stateTiming" || reverseMap) {
+                    maxDate = endOfToday
+                    minDate = startOfToday - dayOffset
+                }
+                else {
+                    minDate = endOfToday
+                    maxDate = startOfToday - dayOffset
+                }          
+            }
+            else if (xAxisAnchor == "dataEnd") {
+                if(gType == "stateTiming" || reverseMap) {
+                    minDate = startOfToday - dayOffset
+                    maxDate = new Date()
+                }     
+                else {
+                    minDate = new Date()
+                    maxDate = startOfToday - dayOffset
+                }         
+            }
+            
+            def barThickness = 30
+            def extraChartSpacing = 20
+            def legendSpace = displayLegend ? 30 : 0
+            def titleSpace = (theChartTitle != "" && theChartTitle != null) ? 40 : 0
+            def numAttributes = eventMap.size()
+            
+            def legendItems = []
+            def uniqueLegendItemIndices = []
+            
+            def chartType = gType == "stateTiming" ? "horizontalBar" : gType
+            
+            buildChart = "f=png&bkg=$bkgrdColor&height=${ legendSpace + titleSpace + (barThickness + extraChartSpacing)*numAttributes}&c={type:'${chartType}'"
+            if(eventMap) {
+                x = 0
+                eventMap.each { it ->  
+                    (theDev,theAtt) = it.key.split(";")
+                    theD = it.value
+                
+                    if(showDevInAtt) {
+                        theAtt = "${theDev} - ${theAtt}"
+                    } else {
+                        theAtt = "${theAtt}"
+                    }                    
+                    theLabels << "'${theAtt}'"
+                    
+                    theDataset = ""
+                    if(logEnable) log.debug "In eventChartingHandler - building dataset for ${theAtt} from data: ${theD}"
+                    
+                    y=0
+                    theD.each { tdata ->
+                        theDate = Date.parse("yyyy-MM-dd HH:mm:ss.SSS", tdata.date.toString())
+                        
+                        if (y < theD.size() - 1) theNextDate = Date.parse("yyyy-MM-dd HH:mm:ss.SSS", theD[y+1].date.toString())
+                        else {
+                            // last date will either be the latest date (today) or the earliest date depending on reverseMap
+                            if(gType == "stateTiming" || reverseMap) theNextDate = new Date()
+                            else theNextDate = minDate
+                        }      
+                            
+                        if(logEnable) log.debug "In eventChartingHandler - theDate = ${theDate} theNextDate = ${theNextDate}"
+ 
+                        tDateStart = theDate.format("yyyy-MM-dd'T'HH:mm:ss")
+                        tDateEnd = theNextDate.format("yyyy-MM-dd'T'HH:mm:ss")
+                        
+                        theData = []
+                        for (i=0; i < x; i++) {
+                            def spacer = [] 
+                            theData.add(spacer)
+                        }
+                        if(gType == "stateTiming" || reverseMap) {
+                            datelist = ["new Date('" + tDateStart + "')", "new Date('" + tDateEnd + "')"]
+                        }
+                        else {
+                            datelist = ["new Date('" + tDateEnd + "')", "new Date('" + tDateStart + "')"]
+                        }
+                        
+                        theData.add(datelist)
+                  
+                        if (y>0) theDataset += ","
+                        theDataset += "{"
+                        theDataset += "label:'${tdata.value}'"
+                        theDataset += ",data:${theData}"
+                        theDataset += ", barThickness: ${barThickness}"
+                        
+                        if (!legendItems.contains(tdata.value)) {
+                            legendItems.add(tdata.value)
+                            uniqueLegendItemIndices.add(x+y)
+                        }
+                        
+                        def theGreenData = ["active", "open", "locked", "present", "on", "open"]
+                        def theRedData = ["inactive", "closed", "unlocked", "not present", "off", "closed"]
+                        
+                        if (theGreenData.contains(tdata.value)) theDataset += ",backgroundColor:'green'"
+                        else if (theRedData.contains(tdata.value)) theDataset += ",backgroundColor:'red'"
+                        
+                        theDataset += "}"
+                        
+                        y++
+                    }
+                    if(logEnable) log.debug "In eventChartingHandler - dataset: ${theDataset}"
+                    
+                    theDatasets << theDataset
+                    x++
+                }
+                
+                if(logEnable) log.debug "In eventChartingHandler - the datasets: ${theDatasets}"
+                buildChart += ",data:{labels:${theLabels},datasets:${theDatasets}}"        
+                buildChart += ",options: {"     
+                buildChart += "title: {display: ${(theChartTitle != "" && theChartTitle != null) ? 'true' : 'false'}, text: '${theChartTitle}', fontColor: '${labelColor}'}"
+                
+                // filter out redundant legend items
+                def legendFilterLogic = ""
+                for (i=0; i<=uniqueLegendItemIndices.size()-1; i++) {
+                    legendFilterLogic += "item.datasetIndex == ${uniqueLegendItemIndices[i]}"
+                    if (i < uniqueLegendItemIndices.size()-1) legendFilterLogic += " || "
+                }
+                buildChart += ",legend:{display: ${displayLegend}, labels: { filter: function(item, chartData) { return ${legendFilterLogic}}}}"
+                
+                def displayFormat = 'ha'
+                if (theDays == "999") displayFormat = 'ha'
+                else displayFormat = 'ddd ha'
+                
+                def maxRotation = 0
+                if (theDays != "999") maxRotation = 75
+                
+                if (onChartValueLabels) buildChart += ",plugins: {datalabels: {anchor: 'start', clamp: true, display: 'auto', align:'end', offset: 0, color:'black', formatter: function(value,context) { return context.chart.data.datasets[context.datasetIndex].label;}}}"
+                
+                // if state timing chart, force stacking Y axis and not stacking X axis
+                if (gType == "stateTiming") buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: false, type: 'time', unit: 'hour', time: {displayFormats: {'hour': '${displayFormat}'}}, ticks: {fontColor: '${labelColor}', maxRotation: ${maxRotation}, ${minDate != null && maxDate != null ? "min: new Date('" + minDate.format("yyyy-MM-dd'T'HH:mm:ss").toString() + "'), max: new Date('" + maxDate.format("yyyy-MM-dd'T'HH:mm:ss").toString() + "')" : ""}}, gridLines:{display: ${displayXAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}', tickMarkLength: 5, drawBorder: false}}], yAxes: [{display: ${displayYAxis}, stacked: true, ticks: {fontColor: '${labelColor}'}, gridLines:{display: ${displayYAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}]}"
+                else buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, type: 'time', unit: 'hour', time: {displayFormats: {'hour': '${displayFormat}'}}, ticks: {fontColor: '${labelColor}', maxRotation: ${maxRotation}, ${minDate != null && maxDate != null ? "min: new Date('" + minDate.format("yyyy-MM-dd'T'HH:mm:ss").toString() + "'), max: new Date('" + maxDate.format("yyyy-MM-dd'T'HH:mm:ss").toString() + "')" : ""}}, gridLines:{display: ${displayXAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}', tickMarkLength: 5, drawBorder: false}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, ticks: {fontColor: '${labelColor}'}, gridLines:{display: ${displayYAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}]}"
+                
+                buildChart += "}}"
+                
+                if(logEnable) log.debug "In eventChartingHandler - buildChart arguments: ${buildChart}"
+                buildChart = "<img width='100%' src=\"https://quickchart.io/chart?" + buildChart + "\" onclick=\"window.open(this.src)\">"
+            }            
+        }
+        else {
             if(logEnable) log.debug "In eventChartingHandler -- Building Numerical Chart --"
 
             x=1
@@ -520,153 +715,6 @@ def eventChartingHandler(eventMap) {
                 buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, ticks: {fontColor: '${labelColor}'}, gridLines:{display: ${displayXAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, ticks: {fontColor: '${labelColor}'}, gridLines:{display: ${displayYAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}]}"
                 buildChart += "}}\" onclick=\"window.open(this.src)\">"
             }
-        }
-        else {
-            if(logEnable) log.debug "In eventChartingHandler -- Building Non-Numerical Chart --"
-            theLabels = []
-            theDatasets = []
-            
-            Date today = new Date()
-            Date startOfToday = today.clearTime()
-            Calendar cal = Calendar.getInstance()
-            cal.setTimeZone(location.timeZone)
-            cal.setTime(startOfToday + 1)
-            cal.add(Calendar.SECOND, -1)
-            Date endOfToday = cal.getTime()
-            
-            def minDate = null
-            def maxDate = null
-            def dayOffset = 0            
-            if (theDays != "999" && theDays != "99") dayOffset = theDays.toInteger()
-            
-            if(!reverseMap) {
-                minDate = endOfToday
-                maxDate = startOfToday - dayOffset
-            }
-            if(reverseMap) {
-                maxDate = endOfToday
-                minDate = startOfToday - dayOffset
-            }
-            
-            def barThickness = 30
-            def extraChartSpacing = 20
-            def legendSpace = displayLegend ? 30 : 0
-            def titleSpace = (theChartTitle != "" && theChartTitle != null) ? 40 : 0
-            def numAttributes = eventMap.size()
-            
-            def legendItems = []
-            def uniqueLegendItemIndices = []
-            
-            buildChart = "f=png&bkg=$bkgrdColor&height=${ legendSpace + titleSpace + (barThickness + extraChartSpacing)*numAttributes}&c={type:'${gType}'"
-            if(eventMap) {
-                x = 0
-                eventMap.each { it ->  
-                    (theDev,theAtt) = it.key.split(";")
-                    theD = it.value
-                
-                    if(showDevInAtt) {
-                        theAtt = "${theDev} - ${theAtt}"
-                    } else {
-                        theAtt = "${theAtt}"
-                    }                    
-                    theLabels << "'${theAtt}'"
-                    
-                    theDataset = ""
-                    if(logEnable) log.debug "In eventChartingHandler - building dataset for ${theAtt} from data: ${theD}"
-                    
-                    y=0
-                    theD.each { tdata ->
-                        theDate = Date.parse("yyyy-MM-dd HH:mm:ss.SSS", tdata.date.toString())
-                        
-                        /* Sets min/max dates based on data, rather than theDays variable - probably the wrong way to do it?
-                        if(minDate == null && !reverseMap) minDate = new Date()
-                        else if (minDate == null) minDate = theDate
-                        else if (minDate.after(theDate)) minDate = theDate
-                        if(maxDate == null && reverseMap) maxDate = new Date()
-                        else if (maxDate == null) maxDate = theDate
-                        else if (theDate.after(maxDate)) maxDate = theDate  
-                          */
-                        
-                        if (y < theD.size() - 1) theNextDate = Date.parse("yyyy-MM-dd HH:mm:ss.SSS", theD[y+1].date.toString())
-                        else {
-                            // last date will either be the latest date (today) or the earliest date depending on reverseMap
-                            if(reverseMap) theNextDate = new Date()
-                            else theNextDate = minDate
-                        }      
-                            
-                        if(logEnable) log.debug "In eventChartingHandler - theDate = ${theDate} theNextDate = ${theNextDate}"
- 
-                        tDateStart = theDate.format("yyyy-MM-dd'T'HH:mm:ss")
-                        tDateEnd = theNextDate.format("yyyy-MM-dd'T'HH:mm:ss")
-                        
-                        theData = []
-                        for (i=0; i < x; i++) {
-                            def spacer = [] 
-                            theData.add(spacer)
-                        }
-                        if(reverseMap) {
-                            datelist = ["new Date('" + tDateStart + "')", "new Date('" + tDateEnd + "')"]
-                        }
-                        else {
-                            datelist = ["new Date('" + tDateEnd + "')", "new Date('" + tDateStart + "')"]
-                        }
-                        
-                        theData.add(datelist)
-                  
-                        if (y>0) theDataset += ","
-                        theDataset += "{"
-                        theDataset += "label:'${tdata.value}'"
-                        theDataset += ",data:${theData}"
-                        theDataset += ", barThickness: ${barThickness}"
-                        
-                        if (!legendItems.contains(tdata.value)) {
-                            legendItems.add(tdata.value)
-                            uniqueLegendItemIndices.add(x+y)
-                        }
-                        
-                        def theGreenData = ["active", "open", "locked", "present", "on", "open"]
-                        def theRedData = ["inactive", "closed", "unlocked", "not present", "off", "closed"]
-                        
-                        if (theGreenData.contains(tdata.value)) theDataset += ",backgroundColor:'green'"
-                        else if (theRedData.contains(tdata.value)) theDataset += ",backgroundColor:'red'"
-                        
-                        theDataset += "}"
-                        
-                        y++
-                    }
-                    if(logEnable) log.debug "In eventChartingHandler - dataset: ${theDataset}"
-                    
-                    theDatasets << theDataset
-                    x++
-                }
-                
-                if(logEnable) log.debug "In eventChartingHandler - the datasets: ${theDatasets}"
-                buildChart += ",data:{labels:${theLabels},datasets:${theDatasets}}"        
-                buildChart += ",options: {"     
-                buildChart += "title: {display: ${(theChartTitle != "" && theChartTitle != null) ? 'true' : 'false'}, text: '${theChartTitle}', fontColor: '${labelColor}'}"
-                
-                // filter out redundant legend items
-                def legendFilterLogic = ""
-                for (i=0; i<=uniqueLegendItemIndices.size()-1; i++) {
-                    legendFilterLogic += "item.datasetIndex == ${uniqueLegendItemIndices[i]}"
-                    if (i < uniqueLegendItemIndices.size()-1) legendFilterLogic += " || "
-                }
-                buildChart += ",legend:{display: ${displayLegend}, labels: { filter: function(item, chartData) { return ${legendFilterLogic}}}}"
-                
-                def displayFormat = 'ha'
-                if (theDays == "999") displayFormat = 'ha'
-                else displayFormat = 'ddd ha'
-                
-                def maxRotation = 0
-                if (theDays != "999") maxRotation = 75
-                
-                if (onChartValueLabels) buildChart += ",plugins: {datalabels: {anchor: 'center', display: 'auto', align:'center', color:'black', formatter: function(value,context) { return context.chart.data.datasets[context.datasetIndex].label;}}}"
-                buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, type: 'time', unit: 'hour', time: {displayFormats: {'hour': '${displayFormat}'}}, ticks: {fontColor: '${labelColor}', maxRotation: ${maxRotation}, ${minDate != null && maxDate != null ? "min: new Date('" + minDate.format("yyyy-MM-dd'T'HH:mm:ss").toString() + "'), max: new Date('" + maxDate.format("yyyy-MM-dd'T'HH:mm:ss").toString() + "')" : ""}}, gridLines:{display: ${displayXAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}', tickMarkLength: 5, drawBorder: false}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, ticks: {fontColor: '${labelColor}'}, gridLines:{display: ${displayYAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}]}"
-                buildChart += "}}"
-                
-                if(logEnable) log.debug "In eventChartingHandler - buildChart arguments: ${buildChart}"
-                buildChart = "<img width='100%' src=\"https://quickchart.io/chart?" + buildChart + "\" onclick=\"window.open(this.src)\">"
-            }            
         }
         
         // Send Chart to Device
