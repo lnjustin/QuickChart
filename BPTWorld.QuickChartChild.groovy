@@ -359,7 +359,7 @@ def getEventsHandler(evt) {
                                 } else {
                                     events = theD.statesSince(att, days, [max: 2000]).collect{[ date:it.date, value:it.value]}.flatten()
                                 }
-                                if(logEnable) log.debug "In getEventsHandler - events: $events"
+                                if(logEnable) log.debug "In getEventsHandler - events: $events for device: ${theD} - ${att}"
                                 def eventsForMap = events
                                 if (gType == "stateTiming" || state.isNumericalData == false) {
                                     def chartDate = days + 1
@@ -382,7 +382,7 @@ def getEventsHandler(evt) {
                                 }
                                 
                                 theKey = "${theD};${att.capitalize()}"
-                                eventMap.put(theKey,eventsForMap)
+                                if (eventsForMap != null && eventsForMap != []) eventMap.put(theKey,eventsForMap)
                             }
                         }
                     }
@@ -615,7 +615,7 @@ def eventChartingHandler(eventMap) {
                          if (customizeStateColors) {    
                              def color = null
                             for (i=1; i <= numStates; i++) {
-                                if (settings["state${i}"].contains(tdata.value) && color == null) color = settings["state${i}Color"]
+                                if (settings["state${i}"] != null && settings["state${i}"].contains(tdata.value) && color == null) color = settings["state${i}Color"]
                             }
                              if (color == null) {
                                  if(logEnable) log.debug "In eventChartingHandler - No color found for state ${tdata.value}. Using default color"
