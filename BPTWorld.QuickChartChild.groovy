@@ -222,6 +222,8 @@ def pageConfig() {
             if (gType != "stateTiming") input "reverseMap", "bool", title: "Reverse Map Output", defaultValue:false, submitOnChange:true
             // force reverseMap for stateTiming
 
+            paragraph "<hr>"
+            
             def inputWidth = gType != "stateTiming" ? 4 : 6
             
             input "displayXAxis", "bool", title: "Show X-Axis", defaultValue:true, submitOnChange:false, width: inputWidth
@@ -237,6 +239,20 @@ def pageConfig() {
                     ["dataEnd":"At End of Data"],
                     ["dayEnd":"At End of Day"]
                 ], defaultValue:"dataEnd", submitOnChange:false, width: 4
+                
+                if (!customizeStateColors) paragraph "<small><b>Using Default State Colors</b><br>Green: active, open, locked, present, on, open, true, dry<br>Red: inactive, closed, unlocked, not present, off, closed, false, wet</small>"
+                input "customizeStateColors", "bool", title: "Customize State Colors?", defaultValue:false, submitOnChange:true, width: 12
+                if (customizeStateColors) {    
+                    input "numStates", "number", title: "How many states?", defaultValue:2, submitOnChange:true, width: 12
+                    paragraph "<small>State Color is set to the color specified for whatever state matches first</small>"
+                    if (!numStates) app.updateSetting("numStates",[type:"number",value:2]) 
+                    if (numStates) {
+                        for (i=1; i <= numStates; i++) {
+                            input "state${i}", "text", title: "State ${i}", submitOnChange:false, width: 6
+                            input "state${i}Color", "text", title: "Color", submitOnChange:false, width: 6
+                        }
+                    }                   
+                }
             }             
             
             paragraph "<hr>"
@@ -596,11 +612,24 @@ def eventChartingHandler(eventMap) {
                             uniqueLegendItemIndices.add(x+y)
                         }
                         
-                        def theGreenData = ["active", "open", "locked", "present", "on", "open"]
-                        def theRedData = ["inactive", "closed", "unlocked", "not present", "off", "closed"]
+                         if (customizeStateColors) {    
+                             def color = null
+                            for (i=1; i <= numStates; i++) {
+                                if (settings["state${i}"].contains(tdata.value) && color == null) color = settings["state${i}Color"]
+                            }
+                             if (color == null) {
+                                 if(logEnable) log.debug "In eventChartingHandler - No color found for state ${tdata.value}. Using default color"
+                                 color = 'black'
+                             }
+                             theDataset += ",backgroundColor:'${color}'"
+                        }   
+                        else {                        
+                            def theGreenData = ["active", "open", "locked", "present", "on", "open", "true", "dry"]
+                            def theRedData = ["inactive", "closed", "unlocked", "not present", "off", "closed", "false", "wet"]
                         
-                        if (theGreenData.contains(tdata.value)) theDataset += ",backgroundColor:'green'"
-                        else if (theRedData.contains(tdata.value)) theDataset += ",backgroundColor:'red'"
+                            if (theGreenData.contains(tdata.value)) theDataset += ",backgroundColor:'green'"
+                            else if (theRedData.contains(tdata.value)) theDataset += ",backgroundColor:'red'"
+                        }
                         
                         theDataset += "}"
                         
