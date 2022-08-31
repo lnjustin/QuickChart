@@ -37,11 +37,8 @@
  *
  *  Changes:
  *
- *  0.2.4 - 08/09/22 - One step forward...two steps back
- *  0.2.3 - 08/09/22 - Added more data checks
- *  0.2.2 - 08/09/22 - Major change by @JustinL - See thread for details
- *  0.2.1 - 08/08/22 - Added some logging to see what's going on
- *  0.2.0 - 08/08/22 - Fixed a typo
+ *  0.3.1 - 08/29/22 - bug hunting
+ *  0.3.0 - 08/29/22 - More 24-hour changes
  *  ---
  *  0.0.1 - 07/12/22 - Initial release.
  */
@@ -50,8 +47,12 @@
 
 def setVersion(){
     state.name = "Quick Chart"
-	state.version = "0.2.4"
-    sendLocationEvent(name: "updateVersionInfo", value: "${state.name}:${state.version}")
+	state.version = "0.3.1"
+}
+
+def syncVersion(evt){
+    setVersion()
+    sendLocationEvent(name: "updateVersionsInfo", value: "${state.name}:${state.version}")
 }
 
 definition(
@@ -105,6 +106,10 @@ def pageConfig() {
             input "gridColor", "text", title: "Grid Color", defaultValue:"black", submitOnChange:false, width: 4
             input "labelColor", "text", title: "Label Color", defaultValue:"black", submitOnChange:false, width: 4
             input "showDevInAtt", "bool", title: "Show Device Name with Attribute on Axes", defaultValue:false, submitOnChange:true, width: 6
+            if(showDevInAtt) {
+                //paragraph "To save characters, enter in filters to remove characters from each device name.<br><small>ie. Motion;on Hub-Device;Sensor;Contact</small>"
+                //input "devFilters", "text", title: "Filters (separtate each with a ; (semicolon))", required:true, submitOnChange:true
+            }
             input "onChartValueLabels", "bool", title: "Show Attribute Values as On-Chart Labels", defaultValue:false, submitOnChange:false, width: 6
             input "displayLegend", "bool", title: "Show Legend", defaultValue:true, submitOnChange:false, width: 6
 
@@ -233,7 +238,10 @@ def pageConfig() {
             input "displayYAxis", "bool", title: "Show Y-Axis", defaultValue:true, submitOnChange:false, width: inputWidth
             input "displayYAxisGrid", "bool", title: "Show Y-Axis Gridlines", defaultValue:true, submitOnChange:false, width: inputWidth
             if (gType != "stateTiming") input "stackYAxis", "bool", title: "Stack Y-Axis Data", defaultValue:false, submitOnChange:false, width: 4
-
+            input "dFormat", "bool", title: "Use 24-hour timestamps", defaultValue:false, submitOnChange:true, width: inputWidth
+            input "yMinValue", "text", title: "Specify Min Value to Chart<br><small>* If blank, chart uses the smallest value found in dataset.</small>", submitOnChange:true
+            
+            
             if(dataType == "rawdata" && (gType == "stateTiming" || state.isNumericalData == false)) {
                 input "xAxisAnchor", "enum", title: "X-Axis Terminates", options: [
                     ["dataEnd":"At End of Data"],
@@ -556,13 +564,33 @@ def eventChartingHandler(eventMap) {
             
             buildChart = "f=png&bkg=$bkgrdColor&height=${ legendSpace + titleSpace + (barThickness + extraChartSpacing)*numAttributes}&c={type:'${chartType}'"
             if(eventMap) {
-                x = 0
+                z = 0
+                n = 0
                 eventMap.each { it ->  
                     (theDev,theAtt) = it.key.split(";")
                     theD = it.value
-                
+
                     if(showDevInAtt) {
-                        theAtt = "${theDev} - ${theAtt}"
+                        if (ZdevFilters) {    // NOT a typo, just making it so it doesn't have access
+                            filters = devFilters.split(";")
+                            if(filters) {
+                                x=1
+                                log.trace "start: $theDev"
+                                filters.each { filt ->
+                                    log.trace "working on: $filt --- $x"
+                                    if(x==1) {
+                                        newDev = theDev.replace("${filt}", "").trim()
+                                    } else {
+                                        newDev = newDev.replace("${filt}", "").trim()
+                                    }
+                                    x += 1
+                                }
+                                log.trace "finished: $newDev"
+                                theAtt = "${newDev} - ${theAtt}"
+                            }
+                        } else {
+                            theAtt = "${theDev} - ${theAtt}"
+                        }
                     } else {
                         theAtt = "${theAtt}"
                     }                    
@@ -588,7 +616,7 @@ def eventChartingHandler(eventMap) {
                         tDateEnd = theNextDate.format("yyyy-MM-dd'T'HH:mm:ss")
                         
                         theData = []
-                        for (i=0; i < x; i++) {
+                        for (i=0; i < z; i++) {
                             def spacer = [] 
                             theData.add(spacer)
                         }
@@ -606,14 +634,17 @@ def eventChartingHandler(eventMap) {
                         theDataset += "label:'${tdata.value}'"
                         theDataset += ",data:${theData}"
                         theDataset += ", barThickness: ${barThickness}"
-                        
+
+                        if(logEnable) log.debug "In eventChartingHandler - Processing legend items for ${theAtt} with z=${z}. Legend Items includes ${legendItems}"
                         if (!legendItems.contains(tdata.value)) {
                             legendItems.add(tdata.value)
-                            uniqueLegendItemIndices.add(x+y)
+                            uniqueLegendItemIndices.add(n)
+                            if(logEnable) log.debug "In eventChartingHandler - adding ${tdata.value} to legend items with z=${z} y=${y}"
                         }
-                        
-                         if (customizeStateColors) {    
-                             def color = null
+                        else if(logEnable) log.debug "In eventChartingHandler - Skipped adding ${tdata.value} because alreaday included in legend items"
+
+                        if (customizeStateColors) {    
+                            def color = null
                             for (i=1; i <= numStates; i++) {
                                 if (settings["state${i}"] != null && settings["state${i}"].contains(tdata.value) && color == null) color = settings["state${i}Color"]
                             }
@@ -634,11 +665,12 @@ def eventChartingHandler(eventMap) {
                         theDataset += "}"
                         
                         y++
+                        n++
                     }
                     if(logEnable) log.debug "In eventChartingHandler - dataset: ${theDataset}"
                     
                     theDatasets << theDataset
-                    x++
+                    z++
                 }
                 
                 if(logEnable) log.debug "In eventChartingHandler - the datasets: ${theDatasets}"
@@ -648,15 +680,27 @@ def eventChartingHandler(eventMap) {
                 
                 // filter out redundant legend items
                 def legendFilterLogic = ""
+                
                 for (i=0; i<=uniqueLegendItemIndices.size()-1; i++) {
                     legendFilterLogic += "item.datasetIndex == ${uniqueLegendItemIndices[i]}"
                     if (i < uniqueLegendItemIndices.size()-1) legendFilterLogic += " || "
                 }
+
                 buildChart += ",legend:{display: ${displayLegend}, labels: { filter: function(item, chartData) { return ${legendFilterLogic}}}}"
                 
-                def displayFormat = 'ha'
-                if (theDays == "999") displayFormat = 'ha'
-                else displayFormat = 'ddd ha'
+                if (theDays == "999") {
+                    if(dFormat) {
+                        displayFormat = 'H'
+                    } else {
+                        displayFormat = 'ha'
+                    }
+                } else {
+                    if(dFormat) {
+                        displayFormat = 'ddd H'
+                    } else {
+                        displayFormat = 'ddd ha'
+                    }
+                }
                 
                 def maxRotation = 0
                 if (theDays != "999") maxRotation = 75
@@ -686,7 +730,26 @@ def eventChartingHandler(eventMap) {
                     theD = it.value
                 
                     if(showDevInAtt) {
-                        theAtt = "${theDev} - ${theAtt}"
+                        if (ZdevFilters) {    // NOT a typo, just making it so it doesn't have access
+                            filters = devFilters.split(";")
+                            if(filters) {
+                                x=1
+                                log.trace "start: $theDev"
+                                filters.each { filt ->
+                                    log.trace "working on: $filt --- $x"
+                                    if(x==1) {
+                                        newDev = theDev.replace("${filt}", "").trim()
+                                    } else {
+                                        newDev = newDev.replace("${filt}", "").trim()
+                                    }
+                                    x += 1
+                                }
+                                log.trace "finished: $newDev"
+                                theAtt = "${newDev} - ${theAtt}"
+                            }
+                        } else {
+                            theAtt = "${theDev} - ${theAtt}"
+                        }
                     } else {
                         theAtt = "${theAtt}"
                     }
@@ -694,32 +757,45 @@ def eventChartingHandler(eventMap) {
                         if(logEnable) log.debug "In eventChartingHandler -- tdata.date = ${tdata.date.toString()} --"
                         if(dataSource) {
                             def dateObj = Date.parse("yyyy-MM-dd HH:mm:ss.SSS", tdata.date.toString())
-                            tDate = dateObj.format("EEE hh:mm")
+                            if(dFormat) {
+                                tDate = dateObj.format("EEE HH:mm")
+                            } else {
+                                tDate = dateObj.format("EEE hh:mm")
+                            }
                         } else {
                             if(dataType == "rawdata") {
                                 if(tdata) {
-                                    theDate = Date.parse("yyyy-MM-dd HH:mm:ss.SSS", tdata.date.toString())
-                                    tDate = theDate.format("EEE hh:mm")
+                                    def dateObj = Date.parse("yyyy-MM-dd HH:mm:ss.SSS", tdata.date.toString())
+                                    if(dFormat) {
+                                        tDate = dateObj.format("EEE HH:mm")
+                                    } else {
+                                        tDate = dateObj.format("EEE hh:mm")
+                                    }
                                 } else {
                                     log.warn "There doesn't seem to be any data"
                                     log.warn "tdata: $tdata"
                                 }
                             } else {
-                                theDate = Date.parse("yyyy-MM-dd", tdata.date.toString())
-                                tDate = theDate.format("EEE")
+                                def dateObj = Date.parse("yyyy-MM-dd", tdata.date.toString())
+                                tDate = dateObj.format("EEE")
                             }
                         }
-                        if(decimals == "None") {
-                            tValue = new BigDecimal(tdata.value).setScale(0, java.math.RoundingMode.HALF_UP)
-                        } else if(decimals == "1") {
-                            tValue = new BigDecimal(tdata.value).setScale(1, java.math.RoundingMode.HALF_UP)
-                        } else if(decimals == "2") {
-                            tValue = new BigDecimal(tdata.value).setScale(2, java.math.RoundingMode.HALF_UP)
-                        }
-                        if(secMin) {
-                            theT = tValue / 60
+                        
+                        if("${tdata}".isNumber()) {
+                            if(decimals == "None") {
+                                tValue = new BigDecimal(tdata.value).setScale(0, java.math.RoundingMode.HALF_UP)
+                            } else if(decimals == "1") {
+                                tValue = new BigDecimal(tdata.value).setScale(1, java.math.RoundingMode.HALF_UP)
+                            } else if(decimals == "2") {
+                                tValue = new BigDecimal(tdata.value).setScale(2, java.math.RoundingMode.HALF_UP)
+                            }
+                            if(secMin) {
+                                theT = tValue / 60
+                            } else {
+                                theT = tValue
+                            }
                         } else {
-                            theT = tValue
+                            theT = tdata.value
                         }
                         
                         if(theDev.toString() == labelDev.toString()) {
@@ -741,7 +817,9 @@ def eventChartingHandler(eventMap) {
                 buildChart += "title: {display: ${(theChartTitle != "" && theChartTitle != null) ? 'true' : 'false'}, text: '${theChartTitle}', fontColor: '${labelColor}'}"
                 buildChart += ",legend:{display: ${displayLegend}}"
                 if (onChartValueLabels) buildChart += ",plugins: {datalabels: {anchor: 'center', align:'center', formatter: function(value,context) { return context.chart.data.datasets[context.datasetIndex].label;}}}"
-                buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, ticks: {fontColor: '${labelColor}'}, gridLines:{display: ${displayXAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, ticks: {fontColor: '${labelColor}'}, gridLines:{display: ${displayYAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}]}"
+                buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, ticks: {fontColor: '${labelColor}'}, gridLines:{display: ${displayXAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, ticks: {"
+                if(yMinValue) buildChart += "min: ${yMinValue}, "
+                buildChart += "fontColor: '${labelColor}'}, gridLines:{display: ${displayYAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}]}"
                 buildChart += "}}\" onclick=\"window.open(this.src)\">"
             }
         }
@@ -838,7 +916,7 @@ String getTheDevices(){
                     if(logEnable) log.debug "In getTheDevices  - Found data: ${theData}"
                     theData.each { it ->
                         (theDev, theAtt, theDate, theValue, theStatus) = it.replace("[","").replace("]","").split(";")
-                        state.isNumericalData = theValue.isNumber()
+                        state.isNumericalData = "${theValue}".isNumber()
                         dLabels << theDev
                     }
                     if(logEnable) log.debug "In getTheDevices  - Finished collecting Data"
@@ -878,11 +956,11 @@ String readFile(fName){
                 } else {                    
                     def xMax = 1
                     if(dataType == "rawdata") {
-                        if(theDays != "99" && theDays != "999") xMax = 1 + theDays.toInteger()
+                        if(theDays != "99" && theDays != "999") xMax = theDays.toInteger()
                     }
                     else if(dataType == "duration") {
-                        if(theDays == "999") xMax = 7  // TO DO: figure out what xMax should be here? What does "every event" mean?
-                        else xMax = 1 + theDays.toInteger()
+                        if(theDays == "999") xMax = 7  
+                        else xMax = theDays.toInteger()
                     }
                     if(logEnable) log.debug "In readFile - Duration ***** Iterating through file with xMax: ${xMax} *****"
                     
@@ -909,7 +987,7 @@ String readFile(fName){
                             (theDev, theAtt, theDate, theValue, theStatus) = it.replace("[","").replace("]","").split(";")
                             theKey = "${theDev};${theAtt}"
                             theValue = theValue.trim()
-                            state.isNumericalData = theValue.isNumber()
+                            state.isNumericalData = "${theValue}".isNumber()
                             newValue = []
                             looking = eventMap.get(theKey)
                             if(looking) {
