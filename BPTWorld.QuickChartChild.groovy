@@ -37,17 +37,22 @@
  *
  *  Changes:
  *
- *  0.3.1 - 08/29/22 - bug hunting
+ *  0.3.3 - 08/31/22 - Fix to collection app
+ *  0.3.2 - 08/31/22 - Bug fix
+ *  0.3.1 - 08/29/22 - Bug hunting
  *  0.3.0 - 08/29/22 - More 24-hour changes
  *  ---
  *  0.0.1 - 07/12/22 - Initial release.
  */
 
+import groovy.json.JsonBuilder
+import groovy.json.JsonOutput
+
 #include BPTWorld.bpt-normalStuff
 
 def setVersion(){
     state.name = "Quick Chart"
-	state.version = "0.3.1"
+	state.version = "0.3.3"
 }
 
 def syncVersion(evt){
@@ -62,21 +67,11 @@ definition(
     description: "Chart your data, quickly and easily. Display your charts in any dashboard.",
     category: "Convenience",
 	parent: "BPTWorld:Quick Chart",
-    oauth: [displayName: "Quick Chart", displayLink: ""],
     iconUrl: "",
     iconX2Url: "",
     iconX3Url: "",
 	importUrl: "",
 )
-
-mappings
-{
-    path("/quickChart/:appId") { action: [ GET: "fetchChart"] }
-}
-
-def getChartEndpoint() {
-    return getFullApiServerUrl() + "/quickChart/${app.id}?access_token=${state.accessToken}"    
-}
 
 preferences {
     page(name: "pageConfig")
@@ -511,7 +506,7 @@ def eventChartingHandler(eventMap) {
         log.info "${app.label} is Paused or Disabled"
     } else {
         if(logEnable) log.debug "In eventChartingHandler (${state.version}) - Device Events"
-
+        
         if (gType == "stateTiming" || state.isNumericalData == false)  {
             if(logEnable) log.debug "In eventChartingHandler -- Building Non-Numerical Chart --"
             theLabels = []
@@ -560,9 +555,12 @@ def eventChartingHandler(eventMap) {
             def legendItems = []
             def uniqueLegendItemIndices = []
             
-            def chartType = gType == "stateTiming" ? "horizontalBar" : gType
+            def chartType = gType == "stateTiming" ? "horizontalBar" : gType            
+            def height = legendSpace + titleSpace + (barThickness + extraChartSpacing)*numAttributes
             
-            buildChart = "f=png&bkg=$bkgrdColor&height=${ legendSpace + titleSpace + (barThickness + extraChartSpacing)*numAttributes}&c={type:'${chartType}'"
+  //          buildChart = "f=png&bkg=$bkgrdColor&height=${height}&c={type:'${chartType}'"
+            buildChart = "{type:'${chartType}'"
+           
             if(eventMap) {
                 z = 0
                 n = 0
@@ -663,7 +661,7 @@ def eventChartingHandler(eventMap) {
                         }
                         
                         theDataset += "}"
-                        
+                       
                         y++
                         n++
                     }
@@ -677,7 +675,7 @@ def eventChartingHandler(eventMap) {
                 buildChart += ",data:{labels:${theLabels},datasets:${theDatasets}}"        
                 buildChart += ",options: {"     
                 buildChart += "title: {display: ${(theChartTitle != "" && theChartTitle != null) ? 'true' : 'false'}, text: '${theChartTitle}', fontColor: '${labelColor}'}"
-                
+  
                 // filter out redundant legend items
                 def legendFilterLogic = ""
                 
@@ -687,7 +685,7 @@ def eventChartingHandler(eventMap) {
                 }
 
                 buildChart += ",legend:{display: ${displayLegend}, labels: { filter: function(item, chartData) { return ${legendFilterLogic}}}}"
-                
+                                                 
                 if (theDays == "999") {
                     if(dFormat) {
                         displayFormat = 'H'
@@ -705,16 +703,21 @@ def eventChartingHandler(eventMap) {
                 def maxRotation = 0
                 if (theDays != "999") maxRotation = 75
                 
-                if (onChartValueLabels) buildChart += ",plugins: {datalabels: {anchor: 'start', clamp: true, display: 'auto', align:'end', offset: 0, color:'black', formatter: function(value,context) { return context.chart.data.datasets[context.datasetIndex].label;}}}"
+                if (onChartValueLabels)  buildChart += ",plugins: {datalabels: {anchor: 'start', clamp: true, display: 'auto', align:'end', offset: 0, color:'black', formatter: function(value,context) { return context.chart.data.datasets[context.datasetIndex].label;}}}"
                 
                 // if state timing chart, force stacking Y axis and not stacking X axis
                 if (gType == "stateTiming") buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: false, type: 'time', unit: 'hour', time: {displayFormats: {'hour': '${displayFormat}'}}, ticks: {fontColor: '${labelColor}', maxRotation: ${maxRotation}, ${minDate != null && maxDate != null ? "min: new Date('" + minDate.format("yyyy-MM-dd'T'HH:mm:ss").toString() + "'), max: new Date('" + maxDate.format("yyyy-MM-dd'T'HH:mm:ss").toString() + "')" : ""}}, gridLines:{display: ${displayXAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}', tickMarkLength: 5, drawBorder: false}}], yAxes: [{display: ${displayYAxis}, stacked: true, ticks: {fontColor: '${labelColor}'}, gridLines:{display: ${displayYAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}]}"
                 else buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, type: 'time', unit: 'hour', time: {displayFormats: {'hour': '${displayFormat}'}}, ticks: {fontColor: '${labelColor}', maxRotation: ${maxRotation}, ${minDate != null && maxDate != null ? "min: new Date('" + minDate.format("yyyy-MM-dd'T'HH:mm:ss").toString() + "'), max: new Date('" + maxDate.format("yyyy-MM-dd'T'HH:mm:ss").toString() + "')" : ""}}, gridLines:{display: ${displayXAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}', tickMarkLength: 5, drawBorder: false}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, ticks: {fontColor: '${labelColor}'}, gridLines:{display: ${displayYAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}]}"
                 
                 buildChart += "}}"
-                
-                if(logEnable) log.debug "In eventChartingHandler - buildChart arguments: ${buildChart}"
-                buildChart = "<img width='100%' src=\"https://quickchart.io/chart?" + buildChart + "\" onclick=\"window.open(this.src)\">"
+          
+                chartMap = [format: "png", backgroundColor: bkgrdColor, height: height, chart: buildChart]                
+                def chartJson = new JsonOutput().toJson(chartMap)                
+                def shortURLResponse = sendJsonGetShortURL(chartJson)
+                if (shortURLResponse != null && shortURLResponse.url != null) {
+                    if(logEnable) log.debug "Got short Quick Chart URL: ${shortURLResponse.url}"
+                    buildChart = "<img width='100%' src=\"" + shortURLResponse.url + "\" onclick=\"window.open(this.src)\">"
+                }
             }            
         }
         else {
@@ -804,7 +807,7 @@ def eventChartingHandler(eventMap) {
                         theData << theT
                     }
                     if(x==1) {
-                        buildChart = "<img width='100%' src=\"https://quickchart.io/chart?f=png&bkg=$bkgrdColor&c={type:'${gType}',data:{labels:${theLabels},datasets:[{label:'${theAtt}',data:${theData}}"
+                        buildChart = "{type:'${gType}',data:{labels:${theLabels},datasets:[{label:'${theAtt}',data:${theData}}"
                     } else {
                         buildChart += ",{label:'${theAtt}',data:${theData}}"
                     }
@@ -820,7 +823,15 @@ def eventChartingHandler(eventMap) {
                 buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, ticks: {fontColor: '${labelColor}'}, gridLines:{display: ${displayXAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, ticks: {"
                 if(yMinValue) buildChart += "min: ${yMinValue}, "
                 buildChart += "fontColor: '${labelColor}'}, gridLines:{display: ${displayYAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}]}"
-                buildChart += "}}\" onclick=\"window.open(this.src)\">"
+                buildChart += "}}"
+                
+                chartMap = [format: "png", backgroundColor: bkgrdColor, chart: buildChart]                
+                def chartJson = new JsonOutput().toJson(chartMap)                
+                def shortURLResponse = sendJsonGetShortURL(chartJson)
+                if (shortURLResponse != null && shortURLResponse.url != null) {
+                    if(logEnable) log.debug "Got short Quick Chart URL: ${shortURLResponse.url}"
+                    buildChart = "<img width='100%' src=\"" + shortURLResponse.url + "\" onclick=\"window.open(this.src)\">"
+                }
             }
         }
         
@@ -828,31 +839,42 @@ def eventChartingHandler(eventMap) {
         if(dataDevice && buildChart) {
             theCLength = buildChart.length()
             if(logEnable) log.debug "In eventChartingHandler - Chart length: $theCLength"
-            if(theCLength > 1024) {
-                if(logEnable) log.debug "Chart is too big to fit in an attribute as HTML. Using endpoint."
-                
-                if (!state.refreshNum) state.refreshNum = 0
-                state.refreshNum++
-                def chartUrl = getChartEndpoint() + '&version=' + state.refreshNum   
-                state.buildChart = buildChart
-                def chartTile =     "<div style='height:100%;width:100%'><iframe src='${chartUrl}' style='height:100%;width:100%;border:none'></iframe></div>"
-                dataDevice.sendEvent(name: "chart", value: chartTile, isStateChange: true)
-            } else {
-                dataDevice.sendEvent(name: "chart", value: buildChart, isStateChange: true)
-            }
+            dataDevice.sendEvent(name: "chart", value: buildChart, isStateChange: true)
             dataDevice.sendEvent(name: "chartLength", value: theCLength, isStateChange: true)
         }
     }
     if(logEnable) log.debug "----------------------------------------------- End Quick Chart -----------------------------------------------"
 }
 
-def fetchChart() {
-    if(params.appId.toInteger() != app.id) {
-        logDebug("Returning null since app ID received at endpoint is ${params.appId.toInteger()} whereas the app ID of this app is ${app.id}")
-        return null    // request was not for this app/team, so return null
-    }    
-    if(logEnable) log.debug "In fetchChart - Rendering HTML"
-    render contentType: "text/html", data: state.buildChart, status: 200
+def sendJsonGetShortURL(jsonBody) {
+    def returnStatus = false
+    def returnData = null
+    def response = null
+    def cmdParams = [
+        uri: "https://quickchart.io/chart/create",
+        headers: ["Content-Type": "application/json"],
+        body: jsonBody,
+        timeout: 30
+    ]
+
+    try{
+        httpPost(cmdParams) { resp ->
+            response = resp
+        }
+        if(response) {
+            returnData = response?.data
+            if(response?.status in [200, 201, 204]) {
+                returnStatus = true
+                //runIn(4, "poll", [overwrite: true])
+            } else {
+                log.error "Response status: ${response?.status}"
+            }
+
+        } else { return returnStatus }
+    } catch(Exception e) {
+        log.error "sendJsonGetShortURL Exception Error: ${e}"
+    }
+    return returnData
 }
 
 def login() {        // Modified from code by @dman2306
@@ -930,6 +952,10 @@ String getTheDevices(){
     } catch(e) {
         log.error(getExceptionMessageWithLine(e))
     }
+}
+
+def toJson(Map m) {
+    return new groovy.json.JsonBuilder(m)
 }
 
 String readFile(fName){
