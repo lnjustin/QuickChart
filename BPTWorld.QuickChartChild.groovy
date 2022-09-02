@@ -37,6 +37,7 @@
  *
  *  Changes:
  *
+ *  0.3.4 - 09/01/22 - Major change to how the charts are made behind the scenes - @JustinL
  *  0.3.3 - 08/31/22 - Fix to collection app
  *  0.3.2 - 08/31/22 - Bug fix
  *  0.3.1 - 08/29/22 - Bug hunting
@@ -52,7 +53,7 @@ import groovy.json.JsonOutput
 
 def setVersion(){
     state.name = "Quick Chart"
-	state.version = "0.3.3"
+	state.version = "0.3.4"
 }
 
 def syncVersion(evt){
@@ -107,6 +108,7 @@ def pageConfig() {
             }
             input "onChartValueLabels", "bool", title: "Show Attribute Values as On-Chart Labels", defaultValue:false, submitOnChange:false, width: 6
             input "displayLegend", "bool", title: "Show Legend", defaultValue:true, submitOnChange:false, width: 6
+            input "dFormat", "bool", title: "Use 24-hour timestamps", defaultValue:false, submitOnChange:true, width: 6
 
             paragraph "<hr>"
             input "dataSource", "bool", title: "Get data from file (off) OR from device event history (on)", defaultValue:false, submitOnChange:true
@@ -224,6 +226,8 @@ def pageConfig() {
 
             paragraph "<hr>"
             
+            input "yMinValue", "text", title: "Specify Min Value to Chart<br><small>* If blank, chart uses the smallest value found in dataset.</small>", submitOnChange:true
+            
             def inputWidth = gType != "stateTiming" ? 4 : 6
             
             input "displayXAxis", "bool", title: "Show X-Axis", defaultValue:true, submitOnChange:false, width: inputWidth
@@ -233,9 +237,6 @@ def pageConfig() {
             input "displayYAxis", "bool", title: "Show Y-Axis", defaultValue:true, submitOnChange:false, width: inputWidth
             input "displayYAxisGrid", "bool", title: "Show Y-Axis Gridlines", defaultValue:true, submitOnChange:false, width: inputWidth
             if (gType != "stateTiming") input "stackYAxis", "bool", title: "Stack Y-Axis Data", defaultValue:false, submitOnChange:false, width: 4
-            input "dFormat", "bool", title: "Use 24-hour timestamps", defaultValue:false, submitOnChange:true, width: inputWidth
-            input "yMinValue", "text", title: "Specify Min Value to Chart<br><small>* If blank, chart uses the smallest value found in dataset.</small>", submitOnChange:true
-            
             
             if(dataType == "rawdata" && (gType == "stateTiming" || state.isNumericalData == false)) {
                 input "xAxisAnchor", "enum", title: "X-Axis Terminates", options: [
@@ -256,7 +257,17 @@ def pageConfig() {
                         }
                     }                   
                 }
-            }             
+            }
+            else {
+                input "showTarget", "bool", title: "Show Target Line?", submitOnChange:true, width: 12
+                if (showTarget) {
+                     input "targetValue", "number", title: "Target Value", submitOnChange:false, width: 6, required: true
+                     input "targetLabel", "text", title: "Target Label", submitOnChange:false, width: 6, required: false
+                     input "targetLineColor", "text", title: "Target Line Color", submitOnChange:false, width: 6, required: false
+                     input "targetLineWidth", "text", title: "Target Line Width (number)", submitOnChange:false, width: 6, required: false
+                     
+                }
+            }
             
             paragraph "<hr>"
         }
@@ -785,6 +796,7 @@ def eventChartingHandler(eventMap) {
                         }
                         
                         if("${tdata}".isNumber()) {
+                            if(logEnable) log.debug "In eventChartingHandler -- tdata detected as number -- tdata: ${tdata}"
                             if(decimals == "None") {
                                 tValue = new BigDecimal(tdata.value).setScale(0, java.math.RoundingMode.HALF_UP)
                             } else if(decimals == "1") {
@@ -798,6 +810,7 @@ def eventChartingHandler(eventMap) {
                                 theT = tValue
                             }
                         } else {
+                             if(logEnable) log.debug "In eventChartingHandler -- tdata detected as NOT a number -- tdata: ${tdata}"
                             theT = tdata.value
                         }
                         
@@ -819,6 +832,11 @@ def eventChartingHandler(eventMap) {
                 buildChart += "]},options: {"
                 buildChart += "title: {display: ${(theChartTitle != "" && theChartTitle != null) ? 'true' : 'false'}, text: '${theChartTitle}', fontColor: '${labelColor}'}"
                 buildChart += ",legend:{display: ${displayLegend}}"
+                
+                if (showTarget && targetValue != null) {
+                    buildChart += ",annotation:{annotations: [{type:'line', mode:'horizontal', scaleID: 'y-axis-0', value:${targetValue}, borderWidth: ${targetLineWidth != null ? targetLineWidth : 1}, borderColor:'${targetLineColor != null ? targetLineColor: "red"}'${targetLabel != null ? ", label: {enabled:true, content: '${targetLabel}'}" : ""}}]}"                  
+                }
+                
                 if (onChartValueLabels) buildChart += ",plugins: {datalabels: {anchor: 'center', align:'center', formatter: function(value,context) { return context.chart.data.datasets[context.datasetIndex].label;}}}"
                 buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, ticks: {fontColor: '${labelColor}'}, gridLines:{display: ${displayXAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, ticks: {"
                 if(yMinValue) buildChart += "min: ${yMinValue}, "
