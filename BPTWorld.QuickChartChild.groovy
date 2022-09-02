@@ -226,7 +226,7 @@ def pageConfig() {
 
             paragraph "<hr>"
             
-            input "yMinValue", "text", title: "Specify Min Value to Chart<br><small>* If blank, chart uses the smallest value found in dataset.</small>", submitOnChange:true
+            if (gType != "stateTiming" || state.isNumericalData == true) input "yMinValue", "text", title: "Specify Min Value to Chart<br><small>* If blank, chart uses the smallest value found in dataset.</small>", submitOnChange:true
             
             def inputWidth = gType != "stateTiming" ? 4 : 6
             
