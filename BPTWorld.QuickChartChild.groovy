@@ -259,13 +259,34 @@ def pageConfig() {
                 }
             }
             else {
-                input "showTarget", "bool", title: "Show Target Line?", submitOnChange:true, width: 12
+                input "showTarget", "bool", title: "Show Target Line", submitOnChange:true, width: 12
                 if (showTarget) {
                      input "targetValue", "number", title: "Target Value", submitOnChange:false, width: 6, required: true
                      input "targetLabel", "text", title: "Target Label", submitOnChange:false, width: 6, required: false
                      input "targetLineColor", "text", title: "Target Line Color", submitOnChange:false, width: 6, required: false
-                     input "targetLineWidth", "text", title: "Target Line Width (number)", submitOnChange:false, width: 6, required: false
-                     
+                     input "targetLineWidth", "text", title: "Target Line Width (number)", submitOnChange:false, width: 6, required: false                     
+                }
+                input "showDynamicLine", "bool", title: "Show Dynamic Line", submitOnChange:true, width: 6
+                if (showDynamicLine) {
+                    input "dynamicLineSource", "enum", title: "Select the source for the dynamic line", options: ["Device Attribute Value", "Charted Value Average"], submitOnChange: true, required: true, width: 6
+                    if (dynamicLineSource == "Charted Value Average") paragraph "<small>Note: Charted Value Average is Calculated Across All Devices and All Attributes</small>"
+                    if (dynamicLineSource == "Device Attribute Value") {
+                        input "dynamicLineDevice", "capability.*", title: "Select the Dynamic Line Device", submitOnChange:true, required: true, width: 6
+                        if(dynamicLineDevice) {
+                            def attrs = []
+                            dynamicLineDevice.supportedAttributes.each { att ->                             
+                               if(att.getDataType().toLowerCase() == "number") attrs << att.name
+                            }
+                            input "dynamicLineAttribute", "enum", title: "Select the Dynamic Line Attribute", options: attrs.unique().sort(), submitOnChange:false, required: true, width: 6
+                        }
+                    }
+                    else if (dynamicLineSource == "Charted Value Average") { 
+                        // nothing to do
+                        // will calculate average across the charted values
+                    }
+                    input "dynamicLineLabel", "text", title: "Dynamic Line Label", submitOnChange:false, width: 4, required: false
+                    input "dynamicLineColor", "text", title: "Dynamic Line Color", submitOnChange:false, width: 4, required: false
+                    input "dynamicLineWidth", "text", title: "Dynamic Line Width (number)", submitOnChange:false, width: 4, required: false                     
                 }
             }
             
@@ -568,8 +589,7 @@ def eventChartingHandler(eventMap) {
             
             def chartType = gType == "stateTiming" ? "horizontalBar" : gType            
             def height = legendSpace + titleSpace + (barThickness + extraChartSpacing)*numAttributes
-            
-  //          buildChart = "f=png&bkg=$bkgrdColor&height=${height}&c={type:'${chartType}'"
+
             buildChart = "{type:'${chartType}'"
            
             if(eventMap) {
@@ -738,6 +758,9 @@ def eventChartingHandler(eventMap) {
             theLabels = []
             theData = []
             
+            def dataTotal = 0
+            def dataPointCount = 0
+            
             if(eventMap) {
                 eventMap.each { it ->  
                     (theDev,theAtt) = it.key.split(";")
@@ -813,11 +836,12 @@ def eventChartingHandler(eventMap) {
                              if(logEnable) log.debug "In eventChartingHandler -- tdata detected as NOT a number -- tdata: ${tdata}"
                             theT = tdata.value
                         }
-                        
                         if(theDev.toString() == labelDev.toString()) {
                             theLabels << "'${tDate}'"
                         } 
                         theData << theT
+                        dataTotal += theT
+                        dataPointCount++
                     }
                     if(x==1) {
                         buildChart = "{type:'${gType}',data:{labels:${theLabels},datasets:[{label:'${theAtt}',data:${theData}}"
@@ -833,8 +857,20 @@ def eventChartingHandler(eventMap) {
                 buildChart += "title: {display: ${(theChartTitle != "" && theChartTitle != null) ? 'true' : 'false'}, text: '${theChartTitle}', fontColor: '${labelColor}'}"
                 buildChart += ",legend:{display: ${displayLegend}}"
                 
-                if (showTarget && targetValue != null) {
-                    buildChart += ",annotation:{annotations: [{type:'line', mode:'horizontal', scaleID: 'y-axis-0', value:${targetValue}, borderWidth: ${targetLineWidth != null ? targetLineWidth : 1}, borderColor:'${targetLineColor != null ? targetLineColor: "red"}'${targetLabel != null ? ", label: {enabled:true, content: '${targetLabel}'}" : ""}}]}"                  
+                def isTargetActive = (showTarget && targetValue != null) ? true : false
+                def isDynamicLineActive = (showDynamicLine && ((dynamicLineSource == "Device Attribute Value" && dynamicLineDevice != null && dynamicLineAttribute != null) || dynamicLineSource == "Charted Value Average")) ? true : false
+                
+                if (isTargetActive || isDynamicLineActive) {
+                    buildChart += ",annotation:{annotations: ["
+                    if (isTargetActive) buildChart += "{type:'line', mode:'horizontal', scaleID: 'y-axis-0', value:${targetValue}, borderWidth: ${targetLineWidth != null ? targetLineWidth : 1}, borderColor:'${targetLineColor != null ? targetLineColor: "red"}'${targetLabel != null ? ", label: {enabled:true, content: '${targetLabel}'}" : ""}}"                                     
+                    if (isTargetActive && isDynamicLineActive) buildChart += ","
+                    if (isDynamicLineActive) {
+                        def dynamicValue = null
+                        if (dynamicLineSource == "Device Attribute Value" && dynamicLineDevice != null && dynamicLineAttribute != null) dynamicValue = dynamicLineDevice.currentValue(dynamicLineAttribute)
+                        else if (dynamicLineSource == "Charted Value Average" && dataPointCount > 0) dynamicValue = dataTotal / dataPointCount
+                        buildChart += "{type:'line', mode:'horizontal', scaleID: 'y-axis-0', value:${dynamicValue}, borderWidth: ${dynamicLineWidth != null ? dynamicLineWidth : 1}, borderColor:'${dynamicLineColor != null ? dynamicLineColor: "blue"}'${dynamicLineLabel != null ? ", label: {enabled:true, content: '${dynamicLineLabel}'}" : ""}}"
+                    }
+                    buildChart += "]}"                    
                 }
                 
                 if (onChartValueLabels) buildChart += ",plugins: {datalabels: {anchor: 'center', align:'center', formatter: function(value,context) { return context.chart.data.datasets[context.datasetIndex].label;}}}"
@@ -1089,3 +1125,4 @@ Boolean getFileList(){
         log.error(getExceptionMessageWithLine(e))
     }
 }
+
