@@ -259,12 +259,12 @@ def pageConfig() {
                 }
             }
             else {
-                input "showTarget", "bool", title: "Show Target Line", submitOnChange:true, width: 12
-                if (showTarget) {
-                     input "targetValue", "number", title: "Target Value", submitOnChange:false, width: 6, required: true
-                     input "targetLabel", "text", title: "Target Label", submitOnChange:false, width: 6, required: false
-                     input "targetLineColor", "text", title: "Target Line Color", submitOnChange:false, width: 6, required: false
-                     input "targetLineWidth", "text", title: "Target Line Width (number)", submitOnChange:false, width: 6, required: false                     
+                input "showStaticLine", "bool", title: "Show Static Line", submitOnChange:true, width: 12
+                if (showStaticLine) {
+                     input "staticLineValue", "number", title: "Static Line Value", submitOnChange:false, width: 6, required: true
+                     input "staticLineLabel", "text", title: "Static Line Label", submitOnChange:false, width: 6, required: false
+                     input "staticLineColor", "text", title: "Static Line Color", submitOnChange:false, width: 6, required: false
+                     input "staticLineWidth", "text", title: "Static Line Width (number)", submitOnChange:false, width: 6, required: false                     
                 }
                 input "showDynamicLine", "bool", title: "Show Dynamic Line", submitOnChange:true, width: 6
                 if (showDynamicLine) {
@@ -857,13 +857,13 @@ def eventChartingHandler(eventMap) {
                 buildChart += "title: {display: ${(theChartTitle != "" && theChartTitle != null) ? 'true' : 'false'}, text: '${theChartTitle}', fontColor: '${labelColor}'}"
                 buildChart += ",legend:{display: ${displayLegend}}"
                 
-                def isTargetActive = (showTarget && targetValue != null) ? true : false
+                def isStaticLineActive = (showStaticLine && staticLineValue != null) ? true : false
                 def isDynamicLineActive = (showDynamicLine && ((dynamicLineSource == "Device Attribute Value" && dynamicLineDevice != null && dynamicLineAttribute != null) || dynamicLineSource == "Charted Value Average")) ? true : false
                 
-                if (isTargetActive || isDynamicLineActive) {
+                if (isStaticLineActive || isDynamicLineActive) {
                     buildChart += ",annotation:{annotations: ["
-                    if (isTargetActive) buildChart += "{type:'line', mode:'horizontal', scaleID: 'y-axis-0', value:${targetValue}, borderWidth: ${targetLineWidth != null ? targetLineWidth : 1}, borderColor:'${targetLineColor != null ? targetLineColor: "red"}'${targetLabel != null ? ", label: {enabled:true, content: '${targetLabel}'}" : ""}}"                                     
-                    if (isTargetActive && isDynamicLineActive) buildChart += ","
+                    if (isStaticLineActive) buildChart += "{type:'line', mode:'horizontal', scaleID: 'y-axis-0', value:${staticLineValue}, borderWidth: ${staticLineWidth != null ? staticLineWidth : 1}, borderColor:'${staticLineColor != null ? staticLineColor: "red"}'${staticLineLabel != null ? ", label: {enabled:true, content: '${staticLineLabel}'}" : ""}}"                                     
+                    if (isStaticLineActive && isDynamicLineActive) buildChart += ","
                     if (isDynamicLineActive) {
                         def dynamicValue = null
                         if (dynamicLineSource == "Device Attribute Value" && dynamicLineDevice != null && dynamicLineAttribute != null) dynamicValue = dynamicLineDevice.currentValue(dynamicLineAttribute)
