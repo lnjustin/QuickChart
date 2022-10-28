@@ -37,6 +37,7 @@
  *
  *  Changes:
  *
+ *  0.3.9 - 10/28/22 - Remvoed x-axis device input; Added tick source option  - @JustinL
  *  0.3.8 - 10/28/22 - Multi-attribute axes alignment fix - @JustinL
  *  0.3.7 - 09/27/22 - Fix by @JustinL
  *  0.3.6 - 09/03/22 - Added Static and Average lines to chart - @JustinL
@@ -145,8 +146,7 @@ def pageConfig() {
                     if (anyNumber && anyNonNumber) paragraph "*Warning: Selected attributes are not all numbers or all non-numbers as required*"
                     else if (anyNumber && !anyNonNumber) state.isNumericalData = true
                     else if (!anyNumber && anyNonNumber) state.isNumericalData = false
-                    
-                    input "labelDev", "enum", title: "Select 'Label' Device (X-Axis)", options: labelOptions, multiple:false, submitOnChange:true
+
                     dataType = "rawdata"
                 }
             } else {
@@ -162,12 +162,6 @@ def pageConfig() {
                 getFileList()
                 if(fileList) {
                     input "fName", "enum", title: "Select a File", options: fileList, multiple:false, submitOnChange:true, required: true
-                    if(fileList) {
-                        getTheDevices()
-                        if(deviceLabels) {
-                            input "labelDev", "enum", title: "Select 'Label' Device (X-Axis)", options: deviceLabels, multiple:false, submitOnChange:false, required: true
-                        }
-                    }
                 } else {
                     paragraph "If file list is empty. Be sure to enter in your Hub Security crediantials and then flip this switch."
                     input "getList", "bool", title: "Get List", defaultValue:false, submitOnChange:true
