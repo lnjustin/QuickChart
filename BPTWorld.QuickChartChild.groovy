@@ -269,7 +269,7 @@ def pageConfig() {
                      input "staticLineColor", "text", title: "Static Line Color", submitOnChange:false, width: 6, required: false
                      input "staticLineWidth", "text", title: "Static Line Width (number)", submitOnChange:false, width: 6, required: false                     
                 }
-                input "showDynamicLine", "bool", title: "Show Dynamic Line", submitOnChange:true, width: 6
+                input "showDynamicLine", "bool", title: "Show Dynamic Line", submitOnChange:true, width: 12
                 if (showDynamicLine) {
                     input "dynamicLineSource", "enum", title: "Select the source for the dynamic line", options: ["Device Attribute Value", "Charted Value Average"], submitOnChange: true, required: true, width: 6
                     if (dynamicLineSource == "Charted Value Average") paragraph "<small>Note: Charted Value Average is Calculated Across All Devices and All Attributes</small>"
@@ -291,7 +291,9 @@ def pageConfig() {
                     input "dynamicLineColor", "text", title: "Dynamic Line Color", submitOnChange:false, width: 4, required: false
                     input "dynamicLineWidth", "text", title: "Dynamic Line Width (number)", submitOnChange:false, width: 4, required: false                     
                 }
-            }           
+            }        
+            input "tickSource", "enum", title: "Tick Source", options: ["auto", "data"], submitOnChange: false, required: true, width: 4
+           
             paragraph "<hr>"
         }
     
@@ -735,7 +737,7 @@ def eventChartingHandler(eventMap) {
                 
                 // if state timing chart, force stacking Y axis and not stacking X axis
                 if (gType == "stateTiming") buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: false, type: 'time', unit: 'hour', time: {displayFormats: {hour: '${displayFormat}'}}, ticks: {fontColor: '${labelColor}', maxRotation: ${maxRotation}, ${minDate != null && maxDate != null ? "min: new Date('" + minDate.format("yyyy-MM-dd'T'HH:mm:ss").toString() + "'), max: new Date('" + maxDate.format("yyyy-MM-dd'T'HH:mm:ss").toString() + "')" : ""}}, gridLines:{display: ${displayXAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}', tickMarkLength: 5, drawBorder: false}}], yAxes: [{display: ${displayYAxis}, stacked: true, ticks: {fontColor: '${labelColor}'}, gridLines:{display: ${displayYAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}]}"
-                else buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, type: 'time', unit: 'hour', time: {displayFormats: {'hour': '${displayFormat}'}}, ticks: {fontColor: '${labelColor}', maxRotation: ${maxRotation}, ${minDate != null && maxDate != null ? "min: new Date('" + minDate.format("yyyy-MM-dd'T'HH:mm:ss").toString() + "'), max: new Date('" + maxDate.format("yyyy-MM-dd'T'HH:mm:ss").toString() + "')" : ""}}, gridLines:{display: ${displayXAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}', tickMarkLength: 5, drawBorder: false}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, ticks: {fontColor: '${labelColor}'}, gridLines:{display: ${displayYAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}]}"
+                else buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, type: 'time', unit: 'hour', time: {displayFormats: {'hour': '${displayFormat}'}}, ticks: {source: '${tickSource}', fontColor: '${labelColor}', maxRotation: ${maxRotation}, ${minDate != null && maxDate != null ? "min: new Date('" + minDate.format("yyyy-MM-dd'T'HH:mm:ss").toString() + "'), max: new Date('" + maxDate.format("yyyy-MM-dd'T'HH:mm:ss").toString() + "')" : ""}}, gridLines:{display: ${displayXAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}', tickMarkLength: 5, drawBorder: false}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, ticks: {fontColor: '${labelColor}'}, gridLines:{display: ${displayYAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}]}"
                 
                 buildChart += "}}"
                 
@@ -883,7 +885,7 @@ def eventChartingHandler(eventMap) {
                 }
                 
                 if (onChartValueLabels) buildChart += ",plugins: {datalabels: {anchor: 'center', align:'center', formatter: function(value,context) { return context.chart.data.datasets[context.datasetIndex].label;}}}"
-                buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, type: 'time', time: {unit: '${displayUnit}', displayFormats: {${displayUnit}: '${displayFormat}'}}, ticks: {fontColor: '${labelColor}'}, gridLines:{display: ${displayXAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, ticks: {"
+                buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, type: 'time', time: {unit: '${displayUnit}', displayFormats: {${displayUnit}: '${displayFormat}'}}, ticks: {source: '${tickSource}', fontColor: '${labelColor}'}, gridLines:{display: ${displayXAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, ticks: {"
                 if(yMinValue) buildChart += "min: ${yMinValue}, "
                 buildChart += "fontColor: '${labelColor}'}, gridLines:{display: ${displayYAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}]}"
                 buildChart += "}}"
