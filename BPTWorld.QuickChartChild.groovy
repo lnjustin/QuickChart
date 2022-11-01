@@ -288,7 +288,7 @@ def pageConfig() {
             }        
             input "tickSource", "enum", title: "X-Axis Tick Source", options: ["auto", "data"], submitOnChange: false, required: true, width: 3
             if (gType != "stateTiming" || state.isNumericalData == true)  {
-                input "chartXAxisAsTime", "bool", title: "Chart X-Axis as Date/Time?", submitOnChange:false, width: 12
+                input "chartXAxisAsTime", "bool", title: "Chart X-Axis as Date/Time?", submitOnChange:false, width: 12, defaultValue: true
             }
             paragraph "<hr>"
         }
