@@ -286,8 +286,10 @@ def pageConfig() {
                     input "dynamicLineWidth", "text", title: "Dynamic Line Width (number)", submitOnChange:false, width: 4, required: false                     
                 }
             }        
-            input "tickSource", "enum", title: "Tick Source", options: ["auto", "data"], submitOnChange: false, required: true, width: 4
-           
+            input "tickSource", "enum", title: "X-Axis Tick Source", options: ["auto", "data"], submitOnChange: false, required: true, width: 3
+            if (gType != "stateTiming" || state.isNumericalData == true)  {
+                input "chartXAxisAsTime", "bool", title: "Chart X-Axis as Date/Time?", submitOnChange:false, width: 12
+            }
             paragraph "<hr>"
         }
     
@@ -839,11 +841,12 @@ def eventChartingHandler(eventMap) {
                             theT = tdata.value
                         }
 
-                        theLabels << tDate 
+                        if (chartXAxisAsTime == null || chartXAxisAsTime == true) theLabels <<  tDate
+                        else theLabels << "'" + tdata.date.toString() + "'"
                         theData << theT
                         if (theT != null) dataTotal += theT
                         dataPointCount++
-                            }
+                    }
                     if(x==1) {
                         buildChart = "{type:'${gType}',data:{datasets:[{label:'${theAtt}',data:${theData}}"
                     } else {
@@ -879,7 +882,7 @@ def eventChartingHandler(eventMap) {
                 }
                 
                 if (onChartValueLabels) buildChart += ",plugins: {datalabels: {anchor: 'center', align:'center', formatter: function(value,context) { return context.chart.data.datasets[context.datasetIndex].label;}}}"
-                buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, type: 'time', time: {unit: '${displayUnit}', displayFormats: {${displayUnit}: '${displayFormat}'}}, ticks: {${tickSource != null ? "source:'" + tickSource + "'," : ""} fontColor: '${labelColor}'}, gridLines:{display: ${displayXAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, ticks: {"
+                buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, ${(chartXAxisAsTime == null || chartXAxisAsTime == true) ? "type: 'time'," : ""} time: {unit: '${displayUnit}', displayFormats: {${displayUnit}: '${displayFormat}'}}, ticks: {${tickSource != null ? "source:'" + tickSource + "'," : ""} fontColor: '${labelColor}'}, gridLines:{display: ${displayXAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, ticks: {"
                 if(yMinValue) buildChart += "min: ${yMinValue}, "
                 buildChart += "fontColor: '${labelColor}'}, gridLines:{display: ${displayYAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}]}"
                 buildChart += "}}"
