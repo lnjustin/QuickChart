@@ -97,7 +97,7 @@ def pageConfig() {
             input "bkgrdColor", "text", title: "Background Color", defaultValue:"white", submitOnChange:false, width: 4
             input "gridColor", "text", title: "Grid Color", defaultValue:"black", submitOnChange:false, width: 4
             input "labelColor", "text", title: "Label Color", defaultValue:"black", submitOnChange:false, width: 4
-            if (gType == "bar" || gType == "horizontalBar" || gType == "progressBar") input "barWidth", "decimal", title: "Bar Width (Percentage 0.0 to 1.0)", width: 12        
+            if (gType == "bar" || gType == "horizontalBar" || gType == "progressBar") input "barWidth", "decimal", title: "Bar Width (auto calculated if blank)", width: 12        
             input "onChartValueLabels", "bool", title: "Show Attribute Values as On-Chart Labels", defaultValue:false, submitOnChange:false, width: 4
             input "dFormat", "bool", title: "Use 24-hour timestamps", defaultValue:false, submitOnChange:true, width: 8
             input "displayLegend", "bool", title: "Show Legend", defaultValue:true, submitOnChange:false, width: 4
