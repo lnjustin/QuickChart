@@ -37,7 +37,7 @@
  *
  *  Changes:
  *  0.4.1 - 11/02/22 - Added Bar Chart Width Configurabiity; Improved Legend Configurability - @JustinL
-*  0.4.0 - 11/01/22 - Bug Fix - @JustinL
+ *  0.4.0 - 11/01/22 - Bug Fix - @JustinL
  *  ---
  *  0.0.1 - 07/12/22 - Initial release.
  */
@@ -49,7 +49,7 @@ import groovy.json.JsonOutput
 
 def setVersion(){
     state.name = "Quick Chart"
-	state.version = "0.4.0"
+	state.version = "0.4.1"
 }
 
 def syncVersion(evt){
@@ -97,7 +97,7 @@ def pageConfig() {
             input "bkgrdColor", "text", title: "Background Color", defaultValue:"white", submitOnChange:false, width: 4
             input "gridColor", "text", title: "Grid Color", defaultValue:"black", submitOnChange:false, width: 4
             input "labelColor", "text", title: "Label Color", defaultValue:"black", submitOnChange:false, width: 4
-            if (gType == "bar" || gType == "horizontalBar" || gType == "progressBar") input "barWidth", "number", title: "Bar Width", width: 12        
+            if (gType == "bar" || gType == "horizontalBar" || gType == "progressBar") input "barWidth", "number", title: "Bar Width (Percentage 0.0 to 1.0)", width: 12        
             input "onChartValueLabels", "bool", title: "Show Attribute Values as On-Chart Labels", defaultValue:false, submitOnChange:false, width: 4
             input "dFormat", "bool", title: "Use 24-hour timestamps", defaultValue:false, submitOnChange:true, width: 8
             input "displayLegend", "bool", title: "Show Legend", defaultValue:true, submitOnChange:false, width: 4
@@ -849,11 +849,11 @@ def eventChartingHandler(eventMap) {
                     }
                     if(x==1) {
                         buildChart = "{type:'${gType}',data:{datasets:[{label:'${theAtt}',data:${theData}"
-                        if ((gType == "bar" || gType == "horizontalBar" || gType == "progressBar") && barWidth != null) buildChart += ", barThickness: ${barWidth}"
+                        if ((gType == "bar" || gType == "horizontalBar" || gType == "progressBar") && barWidth != null) buildChart += ", barPercentage: ${barWidth}"
                         buildChart += "}"
                     } else {
                         buildChart += ",{label:'${theAtt}',data:${theData}"
-                        if ((gType == "bar" || gType == "horizontalBar" || gType == "progressBar") && barWidth != null) buildChart += ", barThickness: ${barWidth}"
+                        if ((gType == "bar" || gType == "horizontalBar" || gType == "progressBar") && barWidth != null) buildChart += ", barPercentage: ${barWidth}"
                         buildChart += "}"
                     }
 
