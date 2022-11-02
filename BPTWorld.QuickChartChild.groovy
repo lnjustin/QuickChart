@@ -36,7 +36,7 @@
  * ------------------------------------------------------------------------------------------------------------------------------
  *
  *  Changes:
- *  0.4.1 - 11/02/22 - Improved Legend Configurability - @JustinL
+ *  0.4.1 - 11/02/22 - Added Bar Chart Width Configurabiity; Improved Legend Configurability - @JustinL
 *  0.4.0 - 11/01/22 - Bug Fix - @JustinL
  *  ---
  *  0.0.1 - 07/12/22 - Initial release.
