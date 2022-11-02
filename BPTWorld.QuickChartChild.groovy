@@ -36,17 +36,8 @@
  * ------------------------------------------------------------------------------------------------------------------------------
  *
  *  Changes:
- *  0.3.10 - 11/01/22 - Bug Fix - @JustinL
- *  0.3.9 - 10/28/22 - Remvoed x-axis device input; Added tick source option  - @JustinL
- *  0.3.8 - 10/28/22 - Multi-attribute axes alignment fix - @JustinL
- *  0.3.7 - 09/27/22 - Fix by @JustinL
- *  0.3.6 - 09/03/22 - Added Static and Average lines to chart - @JustinL
- *  0.3.5 - 09/02/22 - Added a feature to show a target line on a numerical chart - @JustinL
- *  0.3.4 - 09/01/22 - Major change to how the charts are made behind the scenes - @JustinL
- *  0.3.3 - 08/31/22 - Fix to collection app
- *  0.3.2 - 08/31/22 - Bug fix
- *  0.3.1 - 08/29/22 - Bug hunting
- *  0.3.0 - 08/29/22 - More 24-hour changes
+ *  0.4.1 - 11/02/22 - Improved Legend Configurability - @JustinL
+*  0.4.0 - 11/01/22 - Bug Fix - @JustinL
  *  ---
  *  0.0.1 - 07/12/22 - Initial release.
  */
@@ -58,7 +49,7 @@ import groovy.json.JsonOutput
 
 def setVersion(){
     state.name = "Quick Chart"
-	state.version = "0.3.9"
+	state.version = "0.4.0"
 }
 
 def syncVersion(evt){
@@ -106,14 +97,19 @@ def pageConfig() {
             input "bkgrdColor", "text", title: "Background Color", defaultValue:"white", submitOnChange:false, width: 4
             input "gridColor", "text", title: "Grid Color", defaultValue:"black", submitOnChange:false, width: 4
             input "labelColor", "text", title: "Label Color", defaultValue:"black", submitOnChange:false, width: 4
-            input "showDevInAtt", "bool", title: "Show Device Name with Attribute on Axes", defaultValue:false, submitOnChange:true, width: 6
+            if (gType == "bar" || gType == "horizontalBar" || gType == "progressBar") input "barWidth", "number", title: "Bar Width", width: 12        
+            input "onChartValueLabels", "bool", title: "Show Attribute Values as On-Chart Labels", defaultValue:false, submitOnChange:false, width: 4
+            input "dFormat", "bool", title: "Use 24-hour timestamps", defaultValue:false, submitOnChange:true, width: 8
+            input "displayLegend", "bool", title: "Show Legend", defaultValue:true, submitOnChange:false, width: 4
+            input "showDevInAtt", "bool", title: "Show Device Name in Legend", defaultValue:false, submitOnChange:true, width: showDevInAtt ? 4 : 8
             if(showDevInAtt) {
                 //paragraph "To save characters, enter in filters to remove characters from each device name.<br><small>ie. Motion;on Hub-Device;Sensor;Contact</small>"
                 //input "devFilters", "text", title: "Filters (separtate each with a ; (semicolon))", required:true, submitOnChange:true
-            }
-            input "onChartValueLabels", "bool", title: "Show Attribute Values as On-Chart Labels", defaultValue:false, submitOnChange:false, width: 6
-            input "displayLegend", "bool", title: "Show Legend", defaultValue:true, submitOnChange:false, width: 6
-            input "dFormat", "bool", title: "Use 24-hour timestamps", defaultValue:false, submitOnChange:true, width: 6
+                input "showAtt", "bool", title: "Show Attribute in Legend", defaultValue:true, submitOnChange:false, width: 4
+            }   
+            input "legendBoxWidth", "number", title: "Legend Box Width", width: 4, defaultValue: 40
+            input "legendFontSize", "number", title: "Legend Font Size", width: 4, defaultValue: 12
+            
 
             paragraph "<hr>"
             input "dataSource", "bool", title: "Get data from file (off) OR from device event history (on)", defaultValue:false, submitOnChange:true
@@ -610,10 +606,12 @@ def eventChartingHandler(eventMap) {
                                     x += 1
                                 }
                                 log.trace "finished: $newDev"
-                                theAtt = "${newDev} - ${theAtt}"
+                                if (showAtt == null || showAtt == true) theAtt = "${newDev} - ${theAtt}"
+                                else theAtt = "${newDev}"
                             }
                         } else {
-                            theAtt = "${theDev} - ${theAtt}"
+                            if (showAtt == null || showAtt == true) theAtt = "${theDev} - ${theAtt}"
+                            else theAtt = "${theDev}"
                         }
                     } else {
                         theAtt = "${theAtt}"
@@ -710,7 +708,7 @@ def eventChartingHandler(eventMap) {
                     if (i < uniqueLegendItemIndices.size()-1) legendFilterLogic += " || "
                 }
 
-                buildChart += ",legend:{display: ${displayLegend}, labels: { filter: function(item, chartData) { return ${legendFilterLogic}}}}"
+                buildChart += ",legend:{display: ${displayLegend}, labels: { ${legendBoxWidth != null ? "boxWidth: ${legendBoxWidth}," : ""} ${legendFontSize != null ? "fontSize: ${legendFontSize}," : ""} filter: function(item, chartData) { return ${legendFilterLogic}}}}"
                                                  
                 if (theDays == "999") {
                     if(dFormat) {
@@ -794,10 +792,12 @@ def eventChartingHandler(eventMap) {
                                     x += 1
                                 }
                                 log.trace "finished: $newDev"
-                                theAtt = "${newDev} - ${theAtt}"
+                                if (showAtt == null || showAtt == true) theAtt = "${newDev} - ${theAtt}"
+                                else theAtt = "${newDev}"
                             }
                         } else {
-                            theAtt = "${theDev} - ${theAtt}"
+                            if (showAtt == null || showAtt == true) theAtt = "${theDev} - ${theAtt}"
+                            else theAtt = "${theDev}"
                         }
                     } else {
                         theAtt = "${theAtt}"
@@ -848,9 +848,13 @@ def eventChartingHandler(eventMap) {
                         dataPointCount++
                     }
                     if(x==1) {
-                        buildChart = "{type:'${gType}',data:{datasets:[{label:'${theAtt}',data:${theData}}"
+                        buildChart = "{type:'${gType}',data:{datasets:[{label:'${theAtt}',data:${theData}"
+                        if ((gType == "bar" || gType == "horizontalBar" || gType == "progressBar") && barWidth != null) buildChart += ", barThickness: ${barWidth}"
+                        buildChart += "}"
                     } else {
-                        buildChart += ",{label:'${theAtt}',data:${theData}}"
+                        buildChart += ",{label:'${theAtt}',data:${theData}"
+                        if ((gType == "bar" || gType == "horizontalBar" || gType == "progressBar") && barWidth != null) buildChart += ", barThickness: ${barWidth}"
+                        buildChart += "}"
                     }
 
                     x += 1
@@ -863,7 +867,15 @@ def eventChartingHandler(eventMap) {
                 }
                 buildChart += "], labels:${theLabels}},options: {"
                 buildChart += "title: {display: ${(theChartTitle != "" && theChartTitle != null) ? 'true' : 'false'}, text: '${theChartTitle}', fontColor: '${labelColor}'}"
-                buildChart += ",legend:{display: ${displayLegend}}"
+                buildChart += ",legend:{display: ${displayLegend}"
+                if (legendBoxWidth != null || legendFontSize != null) {
+                    buildChart += ", labels: {"
+                    if (legendBoxWidth != null && legendFontSize != null) buildChart += "boxWidth:" + legendBoxWidth + ", fontSize:" + legendFontSize
+                    else if (legendBoxWidth != null) buildChart += "boxWidth:" + legendBoxWidth
+                    else if (legendFontSize != null) buildChart += "fontSize:" + legendFontSize
+                    buildChart += "}"
+                }
+                buildChart += "}"
                 
                 def isStaticLineActive = (showStaticLine && staticLineValue != null) ? true : false
                 def isDynamicLineActive = (showDynamicLine && ((dynamicLineSource == "Device Attribute Value" && dynamicLineDevice != null && dynamicLineAttribute != null) || dynamicLineSource == "Charted Value Average")) ? true : false
