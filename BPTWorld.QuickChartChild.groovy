@@ -849,11 +849,11 @@ def eventChartingHandler(eventMap) {
                     }
                     if(x==1) {
                         buildChart = "{type:'${gType}',data:{datasets:[{label:'${theAtt}',data:${theData}"
-                        if ((gType == "bar" || gType == "horizontalBar" || gType == "progressBar") && barWidth != null) buildChart += ", barPercentage: ${barWidth}"
+                        if ((gType == "bar" || gType == "horizontalBar" || gType == "progressBar") && barWidth != null) buildChart += ", barThickness: ${barWidth}"
                         buildChart += "}"
                     } else {
                         buildChart += ",{label:'${theAtt}',data:${theData}"
-                        if ((gType == "bar" || gType == "horizontalBar" || gType == "progressBar") && barWidth != null) buildChart += ", barPercentage: ${barWidth}"
+                        if ((gType == "bar" || gType == "horizontalBar" || gType == "progressBar") && barWidth != null) buildChart += ", barThickness: ${barWidth}"
                         buildChart += "}"
                     }
 
