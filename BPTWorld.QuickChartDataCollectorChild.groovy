@@ -115,7 +115,9 @@ def pageConfig() {
                         if (theType != attType) areTypesEqual = false
                     }                    
                     if (!areTypesEqual) paragraph "*Selected attributes are not all of the same type*"
-                    state.isNumericalData = attType.toLowerCase() == "number" ? true : false
+                    if(attType) {
+                        state.isNumericalData = attType.toLowerCase() == "number" ? true : false
+                    }
                 }
             } else if(dataType == "duration") {
                 input "theDevices", "capability.*", title: "Select Device", multiple:true, submitOnChange:true
@@ -191,11 +193,13 @@ def pageConfig() {
                     } else {
                         min = updateTime.findAll( /\d+/ )*.toInteger()
                         min = min.toString().replace("[","").replace("]","")
+                        if(updateTime == "1hour" || updateTime == "3hour") min = min.toInteger() * 60
                         hours = (min.toInteger() * dataPoints) / 60
-
-                        paragraph "This will save ${hours} hours of data"
-                        int actualPoints = dataPoints * (theDevices.size() * theAttr.size())
-                        paragraph "Based on options selected: ${dataPoints} Datapoints x (${theDevices.size()} Device(s) x ${theAttr.size()} Attribute(s)) will be $actualPoints points of data saved."
+                        if(dataPoints && theDevices && theAttr) {
+                            paragraph "This will save ${hours} hours of data"
+                            int actualPoints = dataPoints * (theDevices.size() * theAttr.size())
+                            paragraph "Based on options selected: ${dataPoints} Datapoints x (${theDevices.size()} Device(s) x ${theAttr.size()} Attribute(s)) will be $actualPoints points of data saved."
+                        }
                     }
                 }
             }
