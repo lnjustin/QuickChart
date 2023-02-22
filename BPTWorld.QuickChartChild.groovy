@@ -416,10 +416,26 @@ def pointDataChartConfig() {
         input "valueUnits", "text", title: "Value Units", defaultValue:"%", submitOnChange: false, width: 6
         input "maxProgress", "number", title: "Maximum Progress Value", width: 6, defaultValue: 100
     }
+    else if (gType == "doughnut") {
+        input "centerFillColor", "text", title: "Center Background Color", defaultValue:"white", submitOnChange: false, width: 6
+        input "centerImage", "text", title: "Center Background Image", description: "Overrides any specified center color", defaultValue:"", submitOnChange: false, width: 6
+        input "centerSubText", "text", title: "Center Subtext", defaultValue:"", submitOnChange: false, width: 6
+        input "centerPercentage", "number", title: "Center Size (Percentage)", width: 6
+        input "trackColor", "text", title: "Track Background Color", defaultValue:"gray", submitOnChange:false, width: 6
+        input "trackFillColor", "text", title: "Track Fill Color", defaultValue:"green", submitOnChange: false, width: 6
+        input "arcBorderWidth", "number", title: "Outline Width", width: 6, defaultValue: 0
+        input "arcBorderColor", "text", title: "Outline Color", width: 6, defaultValue: ""
+        input "roundedCorners", "bool", title:"Rounded Corners?", width: 6, required: true, defaultValue: false
+        deviceInput(true, true, true, false) 
+        input "valueUnits", "text", title: "Value Units", defaultValue:"%", submitOnChange: false, width: 6
+        input "maxProgress", "number", title: "Maximum Progress Value", width: 6, defaultValue: 100
+    }
     customStateInput()
 }
 
-def deviceInput(multipleDevices = false, multipleAttributes = false) {
+def deviceInput(multipleDevices = false, multipleAttributes = false, onlyOneMultiplicityDimension = false, nonNumberAttributeAllowed = true) {
+    if (multipleDevices && multipleAttributes && onlyOneMultiplicityDimension) paragraph "Select multiple devices with the same attribute (to chart values of the attribute across the devices) or a single device with multiple attributes ( to chart the values of the device's attributes)."
+
     def deviceInputTitle = multipleDevices ? "Select the Device(s)" : "Select the Device"
     input "theDevice", "capability.*", title: deviceInputTitle, multiple:multipleDevices, submitOnChange:true, required: true, width: 12
     if(theDevice) {
@@ -430,13 +446,21 @@ def deviceInput(multipleDevices = false, multipleAttributes = false) {
             labelOptions << dev.displayName
             attributes = dev.supportedAttributes
             attributes.each { att ->
-                allAttrs << att.name
-                attTypes[att.name] = att.getDataType()
+                def aType = att.getDataType()
+                if (nonNumberAttributeAllowed == false && (aType == "Number" || aType == "number")) {
+                    allAttrs << att.name
+                    attTypes[att.name] = att.getDataType()
+                }
+                else if (nonNumberAttributeAllowed == true) {
+                    allAttrs << att.name
+                    attTypes[att.name] = att.getDataType()
+                }
             }
         }
         devAtt = allAttrs.unique().sort()
 
-        def attributeTitle = multipleAttributes ? "Select the Attribute(s)<br><small>Attributes must be either all numbers or all non-numbers.</small>" : "Select the Attribute"
+        def attributeReqText = nonNumberAttributeAllowed ? "Attribute(s) must be either all numbers or all non-numbers." : "Attribute(s) must be numbers."
+        def attributeTitle = multipleAttributes ? "Select the Attribute(s)<br><small>" + attributeReqText + "</small>" : "Select the Attribute"
         input "theAtt", "enum", title: attributeTitle, options: devAtt, multiple:multipleAttributes, submitOnChange:true, required: true
            
         def anyNonNumber = false
@@ -448,6 +472,7 @@ def deviceInput(multipleDevices = false, multipleAttributes = false) {
         }                    
         if(logEnable) log.debug "Detected attribute type: ${attType}"
         if (anyNumber && anyNonNumber) paragraph "*Warning: Selected attributes are not all numbers or all non-numbers as required*"
+        if (nonNumberAttributeAllowed == false && anyNonNumber == true) paragraph "*Warning: Not all selected attributes are non-numbers as required*"
         else if (anyNumber && !anyNonNumber) state.isNumericalData = true
         else if (!anyNumber && anyNonNumber) state.isNumericalData = false
 
