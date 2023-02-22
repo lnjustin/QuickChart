@@ -36,6 +36,7 @@
  * ------------------------------------------------------------------------------------------------------------------------------
  *
  *  Changes:
+ *  0.5.0 - 02/22/22 - Reorganize User Interface to be more flexible for other chart types; Added support for radial gauge chart
  *  0.4.3 - 02/17/22 - Bug fixes; X-Axis origin; Persistent last data point optional; Update chart with device attribute value; Custom bar thickness
  *  0.4.2 - 12/01/22 - Fixes a minor bug
  *  0.4.1 - 11/02/22 - Added Bar Chart Width Configurabiity; Improved Legend Configurability - @JustinL
@@ -101,10 +102,10 @@ def pageConfig() {
             input "theChartTitle", "text", title: "Chart Title", submitOnChange:true, width:6            
             input "bkgrdColor", "text", title: "Background Color", defaultValue:"white", submitOnChange:false, width: 4
             input "labelColor", "text", title: "Label Color", defaultValue:"black", submitOnChange:false, width: 4
-            
-            if (hasBar(gType)) input "globalBarThickness", "number", title: "Global Bar Thickness", submitOnChange:false, width: 4, required: false, defaultValue: 30           
-            if (hasGrid(gType)) input "gridColor", "text", title: "Grid Color", defaultValue:"black", submitOnChange:false, width: 4
 
+            if (hasGrid(gType)) input "gridColor", "text", title: "Grid Color", defaultValue:"black", submitOnChange:false, width: 4   
+            if (hasBar(gType)) input "globalBarThickness", "number", title: "Global Bar Thickness", submitOnChange:false, width: 4, required: false, defaultValue: 30           
+         
             if (chartConfigType == "pointData") pointDataChartConfig() 
             else if (chartConfigType == "comparisonData") comparisonDataChartConfig()
             else if (chartConfigType == "seriesData") seriesDataChartConfig()
@@ -195,9 +196,9 @@ def comparisonDataChartConfig() {
 
 def seriesDataChartConfig() {
     input "onChartValueLabels", "bool", title: "Show Attribute Values as On-Chart Labels", defaultValue:false, submitOnChange:false, width: 4
-    input "dFormat", "bool", title: "Use 24-hour timestamps", defaultValue:false, submitOnChange:true, width: 8
+    input "dFormat", "bool", title: "Use 24-hour timestamps", defaultValue:false, submitOnChange:true, width: 4
     input "displayLegend", "bool", title: "Show Legend", defaultValue:true, submitOnChange:false, width: 4
-    input "showDevInAtt", "bool", title: "Show Device Name in Legend", defaultValue:false, submitOnChange:true, width: showDevInAtt ? 4 : 8
+    input "showDevInAtt", "bool", title: "Show Device Name in Legend", defaultValue:false, submitOnChange:true, width: 4
     if(showDevInAtt) {
          //paragraph "To save characters, enter in filters to remove characters from each device name.<br><small>ie. Motion;on Hub-Device;Sensor;Contact</small>"
          //input "devFilters", "text", title: "Filters (separtate each with a ; (semicolon))", required:true, submitOnChange:true
