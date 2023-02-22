@@ -4,7 +4,7 @@
  *  Design Usage:
  *  Chart your data, quickly and easily. Display your charts in any dashboard.
  *
- *  Copyright 2022 Bryan Turcotte (@bptworld)
+ *  Copyright 2022-2023 Bryan Turcotte (@bptworld)
  * 
  *  This App is free. If you like and use this app, please be sure to mention it on the Hubitat forums! Thanks.
  *
@@ -36,7 +36,7 @@
  * ------------------------------------------------------------------------------------------------------------------------------
  *
  *  Changes:
- *  0.4.3 - 2/17/22 - Bug fixes; X-Axis origin; Persistent last data point optional; Update chart with device attribute value; Custom bar thickness
+ *  0.4.3 - 02/17/22 - Bug fixes; X-Axis origin; Persistent last data point optional; Update chart with device attribute value; Custom bar thickness
  *  0.4.2 - 12/01/22 - Fixes a minor bug
  *  0.4.1 - 11/02/22 - Added Bar Chart Width Configurabiity; Improved Legend Configurability - @JustinL
  *  0.4.0 - 11/01/22 - Bug Fix - @JustinL
@@ -51,7 +51,7 @@ import groovy.json.JsonOutput
 
 def setVersion(){
     state.name = "Quick Chart"
-	state.version = "0.4.2"
+	state.version = "0.4.3"
 }
 
 def syncVersion(evt){
@@ -94,119 +94,25 @@ def pageConfig() {
         }
         
         section(getFormat("header-green", "${getImage("Blank")}"+" Chart Options")) {
-            input "gType", "enum", title: "Chart Style", options: ["bar","line", "horizontalBar","stateTiming","radar","pie","doughnut","polar","scatter","bubble","radialGauge","violin","sparkline","progressBar",""], submitOnChange:true, width:6, required: true
+            input "gType", "enum", title: "Chart Style", options: ["bar","line", "horizontalBar","stateTiming","radar","pie","doughnut","polar","scatter","bubble","gauge","radialGauge","violin","sparkline","progressBar",""], submitOnChange:true, width:6, required: true
+            def chartConfigType = getChartConfigType(gType)
+            def axisType = getChartAxisType(gType)
+            
             input "theChartTitle", "text", title: "Chart Title", submitOnChange:true, width:6            
             input "bkgrdColor", "text", title: "Background Color", defaultValue:"white", submitOnChange:false, width: 4
-            input "gridColor", "text", title: "Grid Color", defaultValue:"black", submitOnChange:false, width: 4
             input "labelColor", "text", title: "Label Color", defaultValue:"black", submitOnChange:false, width: 4
-            if (gType == "bar" || gType == "horizontalBar" || gType == "progressBar") input "barWidth", "number", title: "Bar Width", width: 12        
-            input "onChartValueLabels", "bool", title: "Show Attribute Values as On-Chart Labels", defaultValue:false, submitOnChange:false, width: 4
-            input "dFormat", "bool", title: "Use 24-hour timestamps", defaultValue:false, submitOnChange:true, width: 8
-            input "displayLegend", "bool", title: "Show Legend", defaultValue:true, submitOnChange:false, width: 4
-            input "showDevInAtt", "bool", title: "Show Device Name in Legend", defaultValue:false, submitOnChange:true, width: showDevInAtt ? 4 : 8
-            if(showDevInAtt) {
-                //paragraph "To save characters, enter in filters to remove characters from each device name.<br><small>ie. Motion;on Hub-Device;Sensor;Contact</small>"
-                //input "devFilters", "text", title: "Filters (separtate each with a ; (semicolon))", required:true, submitOnChange:true
-                input "showAtt", "bool", title: "Show Attribute in Legend", defaultValue:true, submitOnChange:false, width: 4
-            }   
-            input "legendBoxWidth", "number", title: "Legend Box Width", width: 4, defaultValue: 40
-            input "legendFontSize", "number", title: "Legend Font Size", width: 4, defaultValue: 12
             
-
-            paragraph "<hr>"
-            input "dataSource", "bool", title: "Get data from file (off) OR from device event history (on)", defaultValue:false, submitOnChange:true
-            if(dataSource) {        // Event History
-                paragraph "<b>Using Device History</b><br>"
-                input "theDevice", "capability.*", title: "Select the Device(s)", multiple:true, submitOnChange:true, required: true
-                if(theDevice) {
-                    labelOptions = []
-                    allAttrs = []
-                    attTypes = [:]
-                    theDevice.each { dev ->
-                        labelOptions << dev.displayName
-                        attributes = dev.supportedAttributes
-                        attributes.each { att ->
-                            allAttrs << att.name
-                            attTypes[att.name] = att.getDataType()
-                        }
-                    }
-                    devAtt = allAttrs.unique().sort()
-                    input "theAtt", "enum", title: "Select the Attribute(s)<br><small>Attributes must be either all numbers or all non-numbers.</small>", options: devAtt, multiple:true, submitOnChange:true, required: true
-                    
-                    def anyNonNumber = false
-                    def anyNumber = false
-                    theAtt.each { att ->                        
-                        theType = attTypes[att]
-                        if (theType.toLowerCase() == "number") anyNumber = true
-                        else anyNonNumber = true
-                    }                    
-                    if(logEnable) log.debug "Detected attribute type: ${attType}"
-                    if (anyNumber && anyNonNumber) paragraph "*Warning: Selected attributes are not all numbers or all non-numbers as required*"
-                    else if (anyNumber && !anyNonNumber) state.isNumericalData = true
-                    else if (!anyNumber && anyNonNumber) state.isNumericalData = false
-
-                    dataType = "rawdata"
-                }
-            } else {
-                paragraph "<b>Using Data File</b><br><small>Data files are made using the 'Quick Chart Data Collector'</small>"
-                input "hubSecurity", "bool", title: "Using Hub Security", defaultValue:false, submitOnChange:true
-                if(hubSecurity) {
-                    input "hubUsername", "string", title: "Hub Security username", submitOnChange:true
-                    input "hubPassword", "password", title: "Hub Security password", submitOnChange:true
-                } else {
-                    app.removeSetting("hubUsername")
-                    app.removeSetting("hubPassword")
-                }
-                getFileList()
-                if(fileList) {
-                    input "fName", "enum", title: "Select a File", options: fileList, multiple:false, submitOnChange:true, required: true
-                } else {
-                    paragraph "If file list is empty. Be sure to enter in your Hub Security crediantials and then flip this switch."
-                    input "getList", "bool", title: "Get List", defaultValue:false, submitOnChange:true
-                    if(getList) {
-                        app.updateSetting("getList",[value:"false",type:"bool"])
-                    }
-                }
-                
-                def dataTypeOptions = []
-                if (gType != "stateTiming") {
-                    dataTypeOptions = [
-                        ["rawdata":"Raw Data Over Time - Temp,Humidity,etc."],
-                        ["duration":"How long things have been on/open/active/etc per xx"]
-                    ]    
-                }
-                else dataTypeOptions = [["rawdata":"Raw Data Over Time - Temp,Humidity,etc."]]       // force charting raw data if chart type is stateTiming   
-                input "dataType", "enum", title: "Select the type of data to store", options: dataTypeOptions, submitOnChange:true, required: true
+            if (gType == "bar" || gType == "horizontalBar" || gType == "progressBar") input "barWidth", "number", title: "Bar Width", width: 12  
+            if (gType == "radialGauge") {
+                input "centerPercentage", "number", title: "Center Percentage", width: 12 
+                input "trackColor", "text", title: "Track Color", defaultValue:"gray", submitOnChange:false, width: 4
             }
-            
-            paragraph "<hr>"
-            if(dataType == "rawdata") {
-                input "theDays", "enum", title: "Select Days to Chart<br><small>* Remember to check how many data points are saved, per attribute, for device selected.</small>", multiple:false, required:true, options: [
-                    ["999":"Today"],
-                    ["1":"+ 1 Day"],
-                    ["2":"+ 2 Days"],
-                    ["3":"+ 3 Days"],
-                    ["4":"+ 4 Days"],
-                    ["5":"+ 5 Days"],
-                    ["6":"+ 6 Days"],
-                    ["7":"+ 7 Days"]
-                ], defaultValue:"999", submitOnChange:true
-                if (state.isNumericalData) input "decimals", "enum", title: "Number of Decimal places", options: ["None","1","2"], defaultValue:"None", submitOnChange:true                
-            } else if(dataType == "duration") {
-                input "theDays", "enum", title: "Select How to Chart", multiple:false, required:true, options: [
-                    ["999":"Today"],
-                    ["1":"Daily Total - 1 Day"],
-                    ["2":"Daily Total - 2 Days"],
-                    ["3":"Daily Total - 3 Days"],
-                    ["4":"Daily Total - 4 Days"],
-                    ["5":"Daily Total - 5 Days"],
-                    ["6":"Daily Total - 6 Days"],
-                    ["7":"Daily Total - 7 Days"]
-                ], defaultValue:"7", submitOnChange:true
-                input "decimals", "enum", title: "Number of Decimal places", options: ["None","1","2"], defaultValue:"None", submitOnChange:true, width:6
-                input "secMin", "bool", title: "Chart using Seconds (off) or Minutes (on)", defaultValue:false, submitOnChange:true, width:6
-            }
-            
+            else input "gridColor", "text", title: "Grid Color", defaultValue:"black", submitOnChange:false, width: 4
+
+            if (chartConfigType == "pointData") pointDataChartConfig() 
+            else if (chartConfigType == "comparisonData") comparisonDataChartConfig()
+            else if (chartConfigType == "seriesData") seriesDataChartConfig()
+                       
             def updateTimeOptions = [
                 ["manual":"Manual"],
                 ["5min":"Every 5 Minutes"],
@@ -217,7 +123,7 @@ def pageConfig() {
                 ["3hour":"Every 3 Hours"],
                 ["attribute":"With Device Attribute Value"],
             ]
-            if (dataSource) updateTimeOptions.add(["realTime":"Real Time"])
+            if (dataSource || chartConfigType == "pointData") updateTimeOptions.add(["realTime":"Real Time"])
             input "updateTime", "enum", title: "When to Update", options: updateTimeOptions, defaultValue:"manual", submitOnChange:true, width: 4 
             if (updateTime == "attribute") {
                 input "updateDevice", "capability.*", title: "Select Update Device", multiple:false, submitOnChange:true, width: 12, required: true
@@ -234,8 +140,7 @@ def pageConfig() {
                 if (updateDevice && updateAttribute && updateAttributeCondition == "value") input "updateAttributeValue", "text", title: "Attribute Value that triggers chart update", submitOnChange:false, width: 4, required: true
             }
             
-            if (gType != "stateTiming") input "reverseMap", "bool", title: "Reverse Map Output", defaultValue:false, submitOnChange:true
-            // force reverseMap for stateTiming
+            
             paragraph "<hr>"
             
             if (gType != "stateTiming" || state.isNumericalData == true) input "yMinValue", "text", title: "Specify Min Value to Chart<br><small>* If blank, chart uses the smallest value found in dataset.</small>", submitOnChange:true
@@ -252,42 +157,6 @@ def pageConfig() {
             
             if(dataType == "rawdata" && (gType == "stateTiming" || state.isNumericalData == false)) {
                 
-                def xAxisOriginOptions = [
-                    ["data":"with Data"],
-                    ["day":"with Day"]
-                ]
-                    
-                if (gType != "stateTiming" && reverseMap == false) {
-                    xAxisOriginOptions = [
-                        ["data":"with Data"],
-                        ["currentTime":"with Current Time"],
-                        ["day":"with Day"]
-                    ]
-                }
-                
-                input "xAxisOrigin", "enum", title: "X-Axis Originates", options: xAxisOriginOptions, defaultValue:"data", submitOnChange:true, width: 4
- 
-                input "xAxisTerminal", "enum", title: "X-Axis Terminates", options: [
-                    ["data":"with Data"],
-                    ["currentTime":"with Current Time"],
-                    ["day":"with Day"]
-                ], defaultValue:"currentTime", submitOnChange:true, width: 4
-                input "extrapolateDataToCurrentTime", "bool", title: "Last Datapoint persists until Current Time?", submitOnChange:true, width: 12, defaultValue: true
-                               
-                if (!customizeStates) paragraph "<small><b>Using Default State Colors</b><br>Green: active, open, locked, present, on, open, true, dry<br>Red: inactive, closed, unlocked, not present, off, closed, false, wet</small>"
-                input "customizeStates", "bool", title: "Customize State Colors and/or Bar Thickness?", defaultValue:false, submitOnChange:true, width: 12
-                if (customizeStates) {    
-                    input "numStates", "number", title: "How many states?", defaultValue:2, submitOnChange:true, width: 12
-                    paragraph "<small>State Color and Bar Thickness is set to the color and bar thickness specified for whatever state matches first</small>"
-                    if (!numStates) app.updateSetting("numStates",[type:"number",value:2]) 
-                    if (numStates) {
-                        for (i=1; i <= numStates; i++) {
-                            input "state${i}", "text", title: "State ${i}", submitOnChange:false, width: 4
-                            input "state${i}Color", "text", title: "Color", submitOnChange:false, width: 4
-                            input "state${i}BarThickness", "number", title: "Bar Thickness", defaultValue: 30, submitOnChange:false, width: 4
-                        }
-                    }                   
-                }
             }
             else {
                 input "showStaticLine", "bool", title: "Show Static Line", submitOnChange:true, width: 12
@@ -320,21 +189,14 @@ def pageConfig() {
                     input "dynamicLineWidth", "text", title: "Dynamic Line Width (number)", submitOnChange:false, width: 4, required: false                     
                 }
             }        
-            input "tickSource", "enum", title: "X-Axis Tick Source", options: ["auto", "data"], submitOnChange: false, required: true, width: 3
-            if (gType != "stateTiming" || state.isNumericalData == true)  {
-                input "chartXAxisAsTime", "bool", title: "Chart X-Axis as Date/Time?", submitOnChange:false, width: 12, defaultValue: true
-                if (chartXAxisAsTime) {
-                    input "xAxisTimeUnit", "enum", title: "X-Axis Time Unit", options: ["second", "minute", "hour", "day", "week", "month", "quarter", "year"], submitOnChange:false, required: false, width: 4
-                    input "xAxisTimeFormat", "text", title: "X-Axis Time Format", description: "Allowable Formats https://momentjs.com/docs/#/displaying/format/", submitOnChange:false, width: 4, required: false
-                }
-            }
-            if (gType == "stateTiming" || state.isNumericalData == false)  {
-                input "xAxisTimeUnit", "enum", title: "X-Axis Time Unit", options: ["second", "minute", "hour", "day", "week", "month", "quarter", "year"], submitOnChange:false, required: false, width: 4
-                input "xAxisTimeFormat", "text", title: "X-Axis Time Format", description: "https://momentjs.com/docs/#/displaying/format/", submitOnChange:false, width: 4, required: false
-            }            
+            input "tickSource", "enum", title: "Tick Source", options: ["auto", "data"], submitOnChange: false, required: true, width: 3
+
+            
             if (gType == "stateTiming" || gType == "bar" || gType == "horizontalBar") {
                 input "globalBarThickness", "number", title: "Global Bar Thickness", submitOnChange:false, width: 4, required: false, defaultValue: 30
             }
+            
+            if (axisType == "xy") XYAxisConfig()
             paragraph "<hr>"
         }
     
@@ -357,6 +219,197 @@ def pageConfig() {
 		display2()
 	}
 }
+
+def getChartConfigType(chartType) {
+    def configType = "seriesData"
+    if (gType == "radialGauge" || gType == "gauge" || gType == "progressBar") configType = "pointData"
+    else if (gType == "pie" || gType == "doughnut") configType = "comparisonData"
+    return configType
+}
+
+def getChartAxisType(chartType) {
+    def axisType = "xy"
+    if (gType == "radialGauge" || gType == "gauge" || gType == "progressBar" || gType == "pie" || gType == "doughnut" || gType == "polarArea" || gType == "radar") axisType = "circular"
+    return axisType
+}
+
+def comparisonDataChartConfig() {
+    
+}
+
+def seriesDataChartConfig() {
+    input "onChartValueLabels", "bool", title: "Show Attribute Values as On-Chart Labels", defaultValue:false, submitOnChange:false, width: 4
+    input "dFormat", "bool", title: "Use 24-hour timestamps", defaultValue:false, submitOnChange:true, width: 8
+    input "displayLegend", "bool", title: "Show Legend", defaultValue:true, submitOnChange:false, width: 4
+    input "showDevInAtt", "bool", title: "Show Device Name in Legend", defaultValue:false, submitOnChange:true, width: showDevInAtt ? 4 : 8
+    if(showDevInAtt) {
+         //paragraph "To save characters, enter in filters to remove characters from each device name.<br><small>ie. Motion;on Hub-Device;Sensor;Contact</small>"
+         //input "devFilters", "text", title: "Filters (separtate each with a ; (semicolon))", required:true, submitOnChange:true
+         input "showAtt", "bool", title: "Show Attribute in Legend", defaultValue:true, submitOnChange:false, width: 4
+    }   
+    input "legendBoxWidth", "number", title: "Legend Box Width", width: 4, defaultValue: 40
+    input "legendFontSize", "number", title: "Legend Font Size", width: 4, defaultValue: 12    
+    
+    paragraph "<hr>"
+    input "dataSource", "bool", title: "Get data from file (off) OR from device event history (on)", defaultValue:false, submitOnChange:true
+    if(dataSource) {        // Event History
+        paragraph "<b>Using Device History</b><br>"
+        input "theDevice", "capability.*", title: "Select the Device(s)", multiple:true, submitOnChange:true, required: true
+        if(theDevice) {
+            labelOptions = []
+            allAttrs = []
+            attTypes = [:]
+            theDevice.each { dev ->
+                labelOptions << dev.displayName
+                attributes = dev.supportedAttributes
+                attributes.each { att ->
+                    allAttrs << att.name
+                    attTypes[att.name] = att.getDataType()
+                }
+            }
+            devAtt = allAttrs.unique().sort()
+            input "theAtt", "enum", title: "Select the Attribute(s)<br><small>Attributes must be either all numbers or all non-numbers.</small>", options: devAtt, multiple:true, submitOnChange:true, required: true
+                    
+            def anyNonNumber = false
+            def anyNumber = false
+            theAtt.each { att ->                        
+                theType = attTypes[att]
+                if (theType.toLowerCase() == "number") anyNumber = true
+                else anyNonNumber = true
+            }                    
+           if(logEnable) log.debug "Detected attribute type: ${attType}"
+           if (anyNumber && anyNonNumber) paragraph "*Warning: Selected attributes are not all numbers or all non-numbers as required*"
+           else if (anyNumber && !anyNonNumber) state.isNumericalData = true
+           else if (!anyNumber && anyNonNumber) state.isNumericalData = false
+
+           dataType = "rawdata"
+       }
+   } else {
+       paragraph "<b>Using Data File</b><br><small>Data files are made using the 'Quick Chart Data Collector'</small>"
+       input "hubSecurity", "bool", title: "Using Hub Security", defaultValue:false, submitOnChange:true
+       if(hubSecurity) {
+           input "hubUsername", "string", title: "Hub Security username", submitOnChange:true
+           input "hubPassword", "password", title: "Hub Security password", submitOnChange:true
+       } else {
+           app.removeSetting("hubUsername")
+           app.removeSetting("hubPassword")
+       }
+       getFileList()
+       if(fileList) {
+           input "fName", "enum", title: "Select a File", options: fileList, multiple:false, submitOnChange:true, required: true
+       } else {
+           paragraph "If file list is empty. Be sure to enter in your Hub Security crediantials and then flip this switch."
+           input "getList", "bool", title: "Get List", defaultValue:false, submitOnChange:true
+           if(getList) {
+               app.updateSetting("getList",[value:"false",type:"bool"])
+           }
+       }
+                
+       def dataTypeOptions = []
+       if (gType != "stateTiming") {
+           dataTypeOptions = [
+               ["rawdata":"Raw Data Over Time - Temp,Humidity,etc."],
+               ["duration":"How long things have been on/open/active/etc per xx"]
+           ]    
+       }
+       else dataTypeOptions = [["rawdata":"Raw Data Over Time - Temp,Humidity,etc."]]       // force charting raw data if chart type is stateTiming   
+       input "dataType", "enum", title: "Select the type of data", options: dataTypeOptions, submitOnChange:true, required: true
+
+    }
+            
+   paragraph "<hr>"
+   if(dataType == "rawdata") {
+       input "theDays", "enum", title: "Select Days to Chart<br><small>* Remember to check how many data points are saved, per attribute, for device selected.</small>", multiple:false, required:true, options: [
+           ["999":"Today"],
+           ["1":"+ 1 Day"],
+           ["2":"+ 2 Days"],
+           ["3":"+ 3 Days"],
+           ["4":"+ 4 Days"],
+           ["5":"+ 5 Days"],
+           ["6":"+ 6 Days"],
+           ["7":"+ 7 Days"]
+       ], defaultValue:"999", submitOnChange:true
+       if (state.isNumericalData) input "decimals", "enum", title: "Number of Decimal places", options: ["None","1","2"], defaultValue:"None", submitOnChange:true                
+   } else if(dataType == "duration") {
+       input "theDays", "enum", title: "Select How to Chart", multiple:false, required:true, options: [
+           ["999":"Today"],
+           ["1":"Daily Total - 1 Day"],
+           ["2":"Daily Total - 2 Days"],
+           ["3":"Daily Total - 3 Days"],
+           ["4":"Daily Total - 4 Days"],
+           ["5":"Daily Total - 5 Days"],
+           ["6":"Daily Total - 6 Days"],
+           ["7":"Daily Total - 7 Days"]
+       ], defaultValue:"7", submitOnChange:true
+       input "decimals", "enum", title: "Number of Decimal places", options: ["None","1","2"], defaultValue:"None", submitOnChange:true, width:6
+       input "secMin", "bool", title: "Chart using Seconds (off) or Minutes (on)", defaultValue:false, submitOnChange:true, width:6
+    }
+    
+    if(dataType == "rawdata" && (gType == "stateTiming" || state.isNumericalData == false)) {
+                
+         input "extrapolateDataToCurrentTime", "bool", title: "Last Datapoint persists until Current Time?", submitOnChange:true, width: 12, defaultValue: true
+                               
+          if (!customizeStates) paragraph "<small><b>Using Default State Colors</b><br>Green: active, open, locked, present, on, open, true, dry<br>Red: inactive, closed, unlocked, not present, off, closed, false, wet</small>"
+          input "customizeStates", "bool", title: "Customize State Colors and/or Bar Thickness?", defaultValue:false, submitOnChange:true, width: 12
+          if (customizeStates) {    
+               input "numStates", "number", title: "How many states?", defaultValue:2, submitOnChange:true, width: 12
+               paragraph "<small>State Color and Bar Thickness is set to the color and bar thickness specified for whatever state matches first</small>"
+               if (!numStates) app.updateSetting("numStates",[type:"number",value:2]) 
+               if (numStates) {
+                   for (i=1; i <= numStates; i++) {
+                        input "state${i}", "text", title: "State ${i}", submitOnChange:false, width: 4
+                         input "state${i}Color", "text", title: "Color", submitOnChange:false, width: 4
+                         input "state${i}BarThickness", "number", title: "Bar Thickness", defaultValue: 30, submitOnChange:false, width: 4
+                  }
+              }                   
+         }
+    }
+    if (gType != "stateTiming") input "reverseMap", "bool", title: "Reverse Data Ordering", defaultValue:false, submitOnChange:true
+     // force reverseMap for stateTiming
+}
+
+def XYAxisConfig() {
+     if(dataType == "rawdata" && (gType == "stateTiming" || state.isNumericalData == false)) {
+                
+          def xAxisOriginOptions = [
+              ["data":"with Data"],
+              ["day":"with Day"]
+          ]
+                    
+          if (gType != "stateTiming" && reverseMap == false) {
+              xAxisOriginOptions = [
+                  ["data":"with Data"],
+                  ["currentTime":"with Current Time"],
+                  ["day":"with Day"]
+               ]
+          }
+                
+          input "xAxisOrigin", "enum", title: "X-Axis Originates", options: xAxisOriginOptions, defaultValue:"data", submitOnChange:true, width: 4
+ 
+          input "xAxisTerminal", "enum", title: "X-Axis Terminates", options: [
+               ["data":"with Data"],
+               ["currentTime":"with Current Time"],
+               ["day":"with Day"]
+          ], defaultValue:"currentTime", submitOnChange:true, width: 4
+                    
+          if (gType != "stateTiming" || state.isNumericalData == true)  {
+               input "chartXAxisAsTime", "bool", title: "Chart X-Axis as Date/Time?", submitOnChange:false, width: 12, defaultValue: true
+               if (chartXAxisAsTime) {
+                   input "xAxisTimeUnit", "enum", title: "X-Axis Time Unit", options: ["second", "minute", "hour", "day", "week", "month", "quarter", "year"], submitOnChange:false, required: false, width: 4
+                   input "xAxisTimeFormat", "text", title: "X-Axis Time Format", description: "Allowable Formats https://momentjs.com/docs/#/displaying/format/", submitOnChange:false, width: 4, required: false
+                }
+          }
+          if (gType == "stateTiming" || state.isNumericalData == false)  {
+                input "xAxisTimeUnit", "enum", title: "X-Axis Time Unit", options: ["second", "minute", "hour", "day", "week", "month", "quarter", "year"], submitOnChange:false, required: false, width: 4
+                input "xAxisTimeFormat", "text", title: "X-Axis Time Format", description: "https://momentjs.com/docs/#/displaying/format/", submitOnChange:false, width: 4, required: false
+          }
+     }
+}
+
+def pointDataChartConfig() {
+    
+}
+    
 
 def installed() {
     log.debug "Installed with settings: ${settings}"
