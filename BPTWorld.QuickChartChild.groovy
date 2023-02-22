@@ -102,17 +102,13 @@ def pageConfig() {
             input "bkgrdColor", "text", title: "Background Color", defaultValue:"white", submitOnChange:false, width: 4
             input "labelColor", "text", title: "Label Color", defaultValue:"black", submitOnChange:false, width: 4
             
-            if (gType == "bar" || gType == "horizontalBar" || gType == "progressBar") input "barWidth", "number", title: "Bar Width", width: 12  
-            if (gType == "radialGauge") {
-                input "centerPercentage", "number", title: "Center Percentage", width: 12 
-                input "trackColor", "text", title: "Track Color", defaultValue:"gray", submitOnChange:false, width: 4
-            }
-            else input "gridColor", "text", title: "Grid Color", defaultValue:"black", submitOnChange:false, width: 4
+            if (hasBar(gType)) input "globalBarThickness", "number", title: "Global Bar Thickness", submitOnChange:false, width: 4, required: false, defaultValue: 30           
+            if (hasGrid(gType)) input "gridColor", "text", title: "Grid Color", defaultValue:"black", submitOnChange:false, width: 4
 
             if (chartConfigType == "pointData") pointDataChartConfig() 
             else if (chartConfigType == "comparisonData") comparisonDataChartConfig()
             else if (chartConfigType == "seriesData") seriesDataChartConfig()
-                       
+
             def updateTimeOptions = [
                 ["manual":"Manual"],
                 ["5min":"Every 5 Minutes"],
@@ -121,9 +117,9 @@ def pageConfig() {
                 ["30min":"Every 30 Minutes"],
                 ["1hour":"Every 1 Hour"],
                 ["3hour":"Every 3 Hours"],
-                ["attribute":"With Device Attribute Value"],
             ]
             if (dataSource || chartConfigType == "pointData") updateTimeOptions.add(["realTime":"Real Time"])
+            else updateTimeOptions.add(["attribute":"With Device Attribute Value"])
             input "updateTime", "enum", title: "When to Update", options: updateTimeOptions, defaultValue:"manual", submitOnChange:true, width: 4 
             if (updateTime == "attribute") {
                 input "updateDevice", "capability.*", title: "Select Update Device", multiple:false, submitOnChange:true, width: 12, required: true
@@ -139,64 +135,11 @@ def pageConfig() {
                 if (updateDevice && updateAttribute) input "updateAttributeCondition", "enum", title: "Update When Attribute...", options: ["value" : "Change To Certain Value", "changes" : "Changes to ANY Value"], defaultValue:"changes", submitOnChange:true, width: 4, required: true
                 if (updateDevice && updateAttribute && updateAttributeCondition == "value") input "updateAttributeValue", "text", title: "Attribute Value that triggers chart update", submitOnChange:false, width: 4, required: true
             }
-            
-            
-            paragraph "<hr>"
-            
-            if (gType != "stateTiming" || state.isNumericalData == true) input "yMinValue", "text", title: "Specify Min Value to Chart<br><small>* If blank, chart uses the smallest value found in dataset.</small>", submitOnChange:true
-            
-            def inputWidth = gType != "stateTiming" ? 4 : 6
-            
-            input "displayXAxis", "bool", title: "Show X-Axis", defaultValue:true, submitOnChange:false, width: inputWidth
-            input "displayXAxisGrid", "bool", title: "Show X-Axis Gridlines", defaultValue:true, submitOnChange:false, width: inputWidth
-            if (gType != "stateTiming") input "stackXAxis", "bool", title: "Stack X-Axis Data", defaultValue:false, submitOnChange:false, width: 4            
-            
-            input "displayYAxis", "bool", title: "Show Y-Axis", defaultValue:true, submitOnChange:false, width: inputWidth
-            input "displayYAxisGrid", "bool", title: "Show Y-Axis Gridlines", defaultValue:true, submitOnChange:false, width: inputWidth
-            if (gType != "stateTiming") input "stackYAxis", "bool", title: "Stack Y-Axis Data", defaultValue:false, submitOnChange:false, width: 4
-            
-            if(dataType == "rawdata" && (gType == "stateTiming" || state.isNumericalData == false)) {
-                
-            }
-            else {
-                input "showStaticLine", "bool", title: "Show Static Line", submitOnChange:true, width: 12
-                if (showStaticLine) {
-                     input "staticLineValue", "number", title: "Static Line Value", submitOnChange:false, width: 6, required: true
-                     input "staticLineLabel", "text", title: "Static Line Label", submitOnChange:false, width: 6, required: false
-                     input "staticLineColor", "text", title: "Static Line Color", submitOnChange:false, width: 6, required: false
-                     input "staticLineWidth", "text", title: "Static Line Width (number)", submitOnChange:false, width: 6, required: false                     
-                }
-                input "showDynamicLine", "bool", title: "Show Dynamic Line", submitOnChange:true, width: 12
-                if (showDynamicLine) {
-                    input "dynamicLineSource", "enum", title: "Select the source for the dynamic line", options: ["Device Attribute Value", "Charted Value Average"], submitOnChange: true, required: true, width: 6
-                    if (dynamicLineSource == "Charted Value Average") paragraph "<small>Note: Charted Value Average is Calculated Across All Devices and All Attributes</small>"
-                    if (dynamicLineSource == "Device Attribute Value") {
-                        input "dynamicLineDevice", "capability.*", title: "Select the Dynamic Line Device", submitOnChange:true, required: true, width: 6
-                        if(dynamicLineDevice) {
-                            def attrs = []
-                            dynamicLineDevice.supportedAttributes.each { att ->                             
-                               if(att.getDataType().toLowerCase() == "number") attrs << att.name
-                            }
-                            input "dynamicLineAttribute", "enum", title: "Select the Dynamic Line Attribute", options: attrs.unique().sort(), submitOnChange:false, required: true, width: 6
-                        }
-                    }
-                    else if (dynamicLineSource == "Charted Value Average") { 
-                        // nothing to do
-                        // will calculate average across the charted values
-                    }
-                    input "dynamicLineLabel", "text", title: "Dynamic Line Label", submitOnChange:false, width: 4, required: false
-                    input "dynamicLineColor", "text", title: "Dynamic Line Color", submitOnChange:false, width: 4, required: false
-                    input "dynamicLineWidth", "text", title: "Dynamic Line Width (number)", submitOnChange:false, width: 4, required: false                     
-                }
-            }        
-            input "tickSource", "enum", title: "Tick Source", options: ["auto", "data"], submitOnChange: false, required: true, width: 3
 
-            
-            if (gType == "stateTiming" || gType == "bar" || gType == "horizontalBar") {
-                input "globalBarThickness", "number", title: "Global Bar Thickness", submitOnChange:false, width: 4, required: false, defaultValue: 30
+            if (axisType == "xy") {
+                paragraph "<hr>"
+                XYAxisConfig()
             }
-            
-            if (axisType == "xy") XYAxisConfig()
             paragraph "<hr>"
         }
     
@@ -220,17 +163,30 @@ def pageConfig() {
 	}
 }
 
-def getChartConfigType(chartType) {
+def getChartConfigType(gType) {
     def configType = "seriesData"
     if (gType == "radialGauge" || gType == "gauge" || gType == "progressBar") configType = "pointData"
     else if (gType == "pie" || gType == "doughnut") configType = "comparisonData"
     return configType
 }
 
-def getChartAxisType(chartType) {
+def getChartAxisType(gType) {
     def axisType = "xy"
     if (gType == "radialGauge" || gType == "gauge" || gType == "progressBar" || gType == "pie" || gType == "doughnut" || gType == "polarArea" || gType == "radar") axisType = "circular"
     return axisType
+}
+
+def hasGrid(gType) {
+    def hadGrid = true
+    if (gType == "radialGauge" || gType == "gauge" || gType == "progressBar" || gType == "pie" || gType == "doughnut") hasGrid = false
+    return hasGrid
+}
+
+def hasBar(gType) {
+    def hasBar = false
+    if (gType == "stateTiming" || gType == "bar" || gType == "horizontalBar" || gType == "progressBar") hasBar = true
+    return hasBar
+
 }
 
 def comparisonDataChartConfig() {
@@ -366,9 +322,12 @@ def seriesDataChartConfig() {
     }
     if (gType != "stateTiming") input "reverseMap", "bool", title: "Reverse Data Ordering", defaultValue:false, submitOnChange:true
      // force reverseMap for stateTiming
+
 }
 
 def XYAxisConfig() {
+    if (gType != "stateTiming" || state.isNumericalData == true) input "yMinValue", "text", title: "Specify Min Value to Chart<br><small>* If blank, chart uses the smallest value found in dataset.</small>", submitOnChange:true
+            
      if(dataType == "rawdata" && (gType == "stateTiming" || state.isNumericalData == false)) {
                 
           def xAxisOriginOptions = [
@@ -384,30 +343,114 @@ def XYAxisConfig() {
                ]
           }
                 
-          input "xAxisOrigin", "enum", title: "X-Axis Originates", options: xAxisOriginOptions, defaultValue:"data", submitOnChange:true, width: 4
+          input "xAxisOrigin", "enum", title: "X-Axis Originates", options: xAxisOriginOptions, defaultValue:"data", submitOnChange:true, width: 6
  
           input "xAxisTerminal", "enum", title: "X-Axis Terminates", options: [
                ["data":"with Data"],
                ["currentTime":"with Current Time"],
                ["day":"with Day"]
-          ], defaultValue:"currentTime", submitOnChange:true, width: 4
+          ], defaultValue:"currentTime", submitOnChange:true, width: 6
                     
           if (gType != "stateTiming" || state.isNumericalData == true)  {
                input "chartXAxisAsTime", "bool", title: "Chart X-Axis as Date/Time?", submitOnChange:false, width: 12, defaultValue: true
                if (chartXAxisAsTime) {
-                   input "xAxisTimeUnit", "enum", title: "X-Axis Time Unit", options: ["second", "minute", "hour", "day", "week", "month", "quarter", "year"], submitOnChange:false, required: false, width: 4
-                   input "xAxisTimeFormat", "text", title: "X-Axis Time Format", description: "Allowable Formats https://momentjs.com/docs/#/displaying/format/", submitOnChange:false, width: 4, required: false
+                   input "xAxisTimeUnit", "enum", title: "X-Axis Time Unit", options: ["second", "minute", "hour", "day", "week", "month", "quarter", "year"], submitOnChange:false, required: false, width: 6
+                   input "xAxisTimeFormat", "text", title: "X-Axis Time Format", description: "Allowable Formats https://momentjs.com/docs/#/displaying/format/", submitOnChange:false, width: 6, required: false
                 }
           }
           if (gType == "stateTiming" || state.isNumericalData == false)  {
-                input "xAxisTimeUnit", "enum", title: "X-Axis Time Unit", options: ["second", "minute", "hour", "day", "week", "month", "quarter", "year"], submitOnChange:false, required: false, width: 4
-                input "xAxisTimeFormat", "text", title: "X-Axis Time Format", description: "https://momentjs.com/docs/#/displaying/format/", submitOnChange:false, width: 4, required: false
+                input "xAxisTimeUnit", "enum", title: "X-Axis Time Unit", options: ["second", "minute", "hour", "day", "week", "month", "quarter", "year"], submitOnChange:false, required: false, width: 6
+                input "xAxisTimeFormat", "text", title: "X-Axis Time Format", description: "https://momentjs.com/docs/#/displaying/format/", submitOnChange:false, width: 6, required: false
           }
      }
+    else {
+        input "showStaticLine", "bool", title: "Show Static Line", submitOnChange:true, width: 12
+        if (showStaticLine) {
+                input "staticLineValue", "number", title: "Static Line Value", submitOnChange:false, width: 6, required: true
+                input "staticLineLabel", "text", title: "Static Line Label", submitOnChange:false, width: 6, required: false
+                input "staticLineColor", "text", title: "Static Line Color", submitOnChange:false, width: 6, required: false
+                input "staticLineWidth", "text", title: "Static Line Width (number)", submitOnChange:false, width: 6, required: false                     
+        }
+        input "showDynamicLine", "bool", title: "Show Dynamic Line", submitOnChange:true, width: 12
+        if (showDynamicLine) {
+            input "dynamicLineSource", "enum", title: "Select the source for the dynamic line", options: ["Device Attribute Value", "Charted Value Average"], submitOnChange: true, required: true, width: 6
+            if (dynamicLineSource == "Charted Value Average") paragraph "<small>Note: Charted Value Average is Calculated Across All Devices and All Attributes</small>"
+            if (dynamicLineSource == "Device Attribute Value") {
+                input "dynamicLineDevice", "capability.*", title: "Select the Dynamic Line Device", submitOnChange:true, required: true, width: 6
+                if(dynamicLineDevice) {
+                    def attrs = []
+                    dynamicLineDevice.supportedAttributes.each { att ->                             
+                        if(att.getDataType().toLowerCase() == "number") attrs << att.name
+                    }
+                    input "dynamicLineAttribute", "enum", title: "Select the Dynamic Line Attribute", options: attrs.unique().sort(), submitOnChange:false, required: true, width: 6
+                }
+            }
+            else if (dynamicLineSource == "Charted Value Average") { 
+                // nothing to do
+                // will calculate average across the charted values
+            }
+            input "dynamicLineLabel", "text", title: "Dynamic Line Label", submitOnChange:false, width: 4, required: false
+            input "dynamicLineColor", "text", title: "Dynamic Line Color", submitOnChange:false, width: 4, required: false
+            input "dynamicLineWidth", "text", title: "Dynamic Line Width (number)", submitOnChange:false, width: 4, required: false                     
+        }
+    }      
+
+    def inputWidth = gType != "stateTiming" ? 4 : 6
+    
+    input "displayXAxis", "bool", title: "Show X-Axis", defaultValue:true, submitOnChange:false, width: inputWidth
+    input "displayXAxisGrid", "bool", title: "Show X-Axis Gridlines", defaultValue:true, submitOnChange:false, width: inputWidth
+    if (gType != "stateTiming") input "stackXAxis", "bool", title: "Stack X-Axis Data", defaultValue:false, submitOnChange:false, width: 4            
+    
+    input "displayYAxis", "bool", title: "Show Y-Axis", defaultValue:true, submitOnChange:false, width: inputWidth
+    input "displayYAxisGrid", "bool", title: "Show Y-Axis Gridlines", defaultValue:true, submitOnChange:false, width: inputWidth
+    if (gType != "stateTiming") input "stackYAxis", "bool", title: "Stack Y-Axis Data", defaultValue:false, submitOnChange:false, width: 4
+  
+    input "tickSource", "enum", title: "Tick Source", options: ["auto", "data"], submitOnChange: false, required: true, width: 3
+
 }
 
 def pointDataChartConfig() {
-    
+    if (gType == "radialGauge") {
+
+        input "roundedCorners", "bool", title:"Rounded Corners?", width: 4, required: true, defaultValue: false
+        input "centerFillColor", "text", title: "Center Background Color", defaultValue:"white", submitOnChange: false, width: 6
+        input "centerImage", "text", title: "Center Background Image", defaultValue:"", submitOnChange: false, width: 6
+        input "centerSubText", "text", title: "Center Subtext", defaultValue:"", submitOnChange: false, width: 6
+        input "centerPercentage", "number", title: "Center Size (Percentage)", width: 6
+        input "trackColor", "text", title: "Track Background Color", defaultValue:"gray", submitOnChange:false, width: 6
+        input "trackFillColor", "text", title: "Track Fill Color", defaultValue:"green", submitOnChange: false, width: 6
+        input "arcBorderWidth", "number", title: "Outline Width", width: 6, defaultValue: 0
+        input "arcBorderColor", "text", title: "Outline Color", width: 6, defaultValue: ""
+        input "theDevice", "capability.*", title: "Select the Device", multiple:false, submitOnChange:true, required: true, width: 12
+        if(theDevice) {
+            labelOptions = []
+            allAttrs = []
+            attTypes = [:]
+            labelOptions << theDevice.displayName
+            attributes = theDevice.supportedAttributes
+            attributes.each { att ->
+                allAttrs << att.name
+                attTypes[att.name] = att.getDataType()
+            }
+            devAtt = allAttrs.unique().sort()
+            input "theAtt", "enum", title: "Select the Attribute<br><small>Attributes must be a number.</small>", options: devAtt, multiple:false, submitOnChange:true, required: true, width: 12
+                    
+            def anyNonNumber = false
+            def anyNumber = false
+            if (theAtt)  {                  
+                theType = attTypes[theAtt]
+                if (theType.toLowerCase() == "number") anyNumber = true
+                else anyNonNumber = true
+            }                    
+           if (anyNumber && !anyNonNumber) state.isNumericalData = true
+           else if (!anyNumber && anyNonNumber) state.isNumericalData = false
+        }
+        dataType = "rawdata"       
+        input "valueUnits", "text", title: "Value Units", defaultValue:"", submitOnChange: false, width: 4
+        input "domainMin", "number", title: "Minimum Possible Value", submitOnChange:false, width: 4, required: true
+        input "domainMax", "number", title: "Maximum Possible Value", submitOnChange:false, width: 4, required: true
+        
+    }
 }
     
 
@@ -476,7 +519,16 @@ def getEvents() {
         log.info "${app.label} is Paused or Disabled"
     } else {
         if(logEnable) log.debug "----------------------------------------------- Start Quick Chart -----------------------------------------------"
-        if(dataSource) {
+        if (getChartConfigType(gType) == "pointData") {
+            def eventMap = [:]
+            def theKey = "${theDevice};${theAtt}"
+            def dataPoint = theDevice.currentValue(theAtt)
+            def dataMap =[]
+            dataMap << [date:new Date(),value:dataPoint]
+            eventMap.put(theKey, dataMap)
+            eventChartingHandler(eventMap)
+        }
+        else if(dataSource) {
             if(logEnable) log.debug "In getEvents (${state.version}) - Event History"
             events = []
             def today = new Date().clearTime()
@@ -644,7 +696,61 @@ def eventChartingHandler(eventMap) {
     } else {
         if(logEnable) log.debug "In eventChartingHandler (${state.version}) - Device Events"
         
-        if (gType == "stateTiming" || state.isNumericalData == false)  {
+        if (gType == "radialGauge") {
+  if(logEnable) log.debug "In eventChartingHandler -- Building Radial Gauge Chart with eventMap ${eventMap} --"
+            theDataset = []           
+            def chartType = gType        
+            buildChart = "{type:'${chartType}'"
+           
+            if(eventMap) {
+                eventMap.each { it ->  
+                    (theDev,theAtt) = it.key.split(";")
+                    theD = it.value
+                    
+                    theDatasets = []
+                    if(logEnable) log.debug "In eventChartingHandler - building dataset for ${theAtt} from data: ${theD}"
+                    
+                    y=0
+                    theD.each { tdata ->
+                        def theDataset = "{"
+                        theDataset += "data:[${tdata.value}],"
+                        theDataset += "backgroundColor:'${trackFillColor}',"
+                        theDataset += "}"
+                        theDatasets << theDataset
+                    }
+                }
+
+                if(logEnable) log.debug "In eventChartingHandler - the datasets: ${theDatasets}"
+                buildChart += ",data:{datasets:${theDatasets}}"        
+                buildChart += ",options: {"     
+                buildChart += "domain: [" + domainMin + "," + domainMax + "]"
+                buildChart += ",trackColor:'" + trackColor + "'"
+                buildChart += ",centerPercentage:" + centerPercentage
+                buildChart += ",roundedCorners:" + roundedCorners
+                buildChart += ",elements: { arc: { borderColor: '" + (arcBorderColor ? arcBorderColor : "white") + "', borderWidth: " + (arcBorderWidth ? arcBorderWidth : 0 ) + " } }"
+                buildChart += ",centerArea:{"
+                buildChart += "text: (val) => val + '" + (valueUnits != null ? valueUnits : "") + "'"
+                buildChart += ",fontColor:'" + labelColor + "'"
+                if (centerImage != null && centerImage != "") buildChart += ",backgroundImage:'" + centerImage + "'"
+                if (centerFillColor != null && centerFillColor != "") buildChart += ",backgroundColor:'" + centerFillColor + "'"
+                if (centerSubText != null && centerSubText != "") buildChart += ",subText:'" + centerSubText + "'"
+                buildChart += "}"
+                buildChart += ",title: {display: ${(theChartTitle != "" && theChartTitle != null) ? 'true' : 'false'}, text: '${theChartTitle}', fontColor: '${labelColor}'}"
+  
+                buildChart += "}}"
+                
+                
+          
+                chartMap = [format: "png", backgroundColor: bkgrdColor, height: height, chart: buildChart]                
+                def chartJson = new JsonOutput().toJson(chartMap)                
+                def shortURLResponse = sendJsonGetShortURL(chartJson)
+                if (shortURLResponse != null && shortURLResponse.url != null) {
+                    if(logEnable) log.debug "Got short Quick Chart URL: ${shortURLResponse.url}"
+                    buildChart = "<img width='100%' src=\"" + shortURLResponse.url + "\" onclick=\"window.open(this.src)\">"
+                }
+            }                 
+        }
+        else if (gType == "stateTiming" || state.isNumericalData == false)  {
             if(logEnable) log.debug "In eventChartingHandler -- Building Non-Numerical Chart --"
             theLabels = []
             theDatasets = []
@@ -1027,11 +1133,11 @@ def eventChartingHandler(eventMap) {
                     }
                     if(x==1) {
                         buildChart = "{type:'${gType}',data:{datasets:[{label:'${theAtt}',data:${theData}"
-                        if ((gType == "bar" || gType == "horizontalBar" || gType == "progressBar") && barWidth != null) buildChart += ", barThickness: ${barWidth}"
+                        if ((gType == "bar" || gType == "horizontalBar" || gType == "progressBar") && barWidth != null) buildChart += ", barThickness: ${globalBarThickness}"
                         buildChart += "}"
                     } else {
                         buildChart += ",{label:'${theAtt}',data:${theData}"
-                        if ((gType == "bar" || gType == "horizontalBar" || gType == "progressBar") && barWidth != null) buildChart += ", barThickness: ${barWidth}"
+                        if ((gType == "bar" || gType == "horizontalBar" || gType == "progressBar") && barWidth != null) buildChart += ", barThickness: ${globalBarThickness}"
                         buildChart += "}"
                     }
 
