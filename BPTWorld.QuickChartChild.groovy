@@ -36,7 +36,7 @@
  * ------------------------------------------------------------------------------------------------------------------------------
  *
  *  Changes:
- *  0.5.0 - 02/22/22 - Reorganize User Interface to be more flexible for other chart types; Added support for radial gauge chart and progress bar; Added user-defined chart height
+ *  0.5.0 - 02/22/22 - Reorganize User Interface to be more flexible for other chart types; Added support for radial gauge chart and progress bar; Added user-defined chart height; Define custom states with numeric ranges
  *  0.4.3 - 02/17/22 - Bug fixes; X-Axis origin; Persistent last data point optional; Update chart with device attribute value; Custom bar thickness
  *  0.4.2 - 12/01/22 - Fixes a minor bug
  *  0.4.1 - 11/02/22 - Added Bar Chart Width Configurabiity; Improved Legend Configurability - @JustinL
@@ -278,25 +278,31 @@ def seriesDataChartConfig() {
     
     if(dataType == "rawdata" && (gType == "stateTiming" || state.isNumericalData == false)) {
                 
-         input "extrapolateDataToCurrentTime", "bool", title: "Last Datapoint persists until Current Time?", submitOnChange:true, width: 12, defaultValue: true
-                               
-          if (!customizeStates) paragraph "<small><b>Using Default State Colors</b><br>Green: active, open, locked, present, on, open, true, dry<br>Red: inactive, closed, unlocked, not present, off, closed, false, wet</small>"
-          input "customizeStates", "bool", title: "Customize State Colors and/or Bar Thickness?", defaultValue:false, submitOnChange:true, width: 12
-          if (customizeStates) {    
-               input "numStates", "number", title: "How many states?", defaultValue:2, submitOnChange:true, width: 12
-               paragraph "<small>State Color and Bar Thickness is set to the color and bar thickness specified for whatever state matches first</small>"
-               if (!numStates) app.updateSetting("numStates",[type:"number",value:2]) 
-               if (numStates) {
-                   for (i=1; i <= numStates; i++) {
-                        input "state${i}", "text", title: "State ${i}", submitOnChange:false, width: 4
-                         input "state${i}Color", "text", title: "Color", submitOnChange:false, width: 4
-                         input "state${i}BarThickness", "number", title: "Bar Thickness", defaultValue: 30, submitOnChange:false, width: 4
-                  }
-              }                   
-         }
+        input "extrapolateDataToCurrentTime", "bool", title: "Last Datapoint persists until Current Time?", submitOnChange:true, width: 12, defaultValue: true                  
+        if (!customizeStates) paragraph "<small><b>Using Default State Colors</b><br>Green: active, open, locked, present, on, open, true, dry<br>Red: inactive, closed, unlocked, not present, off, closed, false, wet</small>"
+        customStateInput()
     }
     if (gType != "stateTiming") input "reverseMap", "bool", title: "Reverse Data Ordering", defaultValue:false, submitOnChange:true
      // force reverseMap for stateTiming
+
+}
+
+def customStateInput() {
+    def customizeBar = hasBar(gType) && gType != "progressBar"
+    def inputWidth = customizeBar ? 4 : 6
+    input "customizeStates", "bool", title: "Customize State Colors ${customizeBar ? 'and/or Bar Thickness?' : ''}", defaultValue:false, submitOnChange:true, width: 12
+    if (customizeStates) {    
+        input "numStates", "number", title: "How many states?", defaultValue:2, submitOnChange:true, width: 12
+        paragraph "<small>State Color" + (customizeBar ? ' and Bar Thickness' : '') + " is set to the color" + (customizeBar ? ' and bar thickness' : '') + " specified for whatever state matches first, overriding any global settings specified above. States can be defined as a single text value, a single numeric value, or a range of numeric values. Define a range of numeric values as MIN:MAX (example: 1:50). Ranges are inclusive of both MIN and MAX. </small>"
+        if (!numStates) app.updateSetting("numStates",[type:"number",value:2]) 
+        if (numStates) {
+            for (i=1; i <= numStates; i++) {
+                input "state${i}", "text", title: "State ${i}", submitOnChange:false, width: inputWidth
+                input "state${i}Color", "text", title: "Color", submitOnChange:false, width: inputWidth
+                if (customizeBar) input "state${i}BarThickness", "number", title: "Bar Thickness", defaultValue: 30, submitOnChange:false, width: 4
+            }
+        }                   
+    }
 
 }
 
@@ -408,6 +414,7 @@ def pointDataChartConfig() {
         input "valueUnits", "text", title: "Value Units", defaultValue:"%", submitOnChange: false, width: 6
         input "maxProgress", "number", title: "Maximum Progress Value", width: 6, defaultValue: 100
     }
+    customStateInput()
 }
 
 def deviceInput(multipleDevices = false, multipleAttributes = false) {
@@ -709,8 +716,28 @@ def eventChartingHandler(eventMap) {
                     theD.each { tdata ->
                         def theDataset = "{"
                         theDataset += "data:[${tdata.value}],"
-                        if (gType == "radialGauge" && trackFillColor != null) theDataset += "backgroundColor:'" + trackFillColor + "',"
-                        else if (gType == "progressBar" && barColor != null) theDataset += "backgroundColor:'" + barColor + "',"
+                        def color = null
+                        if (customizeStates) {    
+                            for (i=1; i <= numStates; i++) {
+                                def state = settings["state${i}"]
+                                def stateColor = settings["state${i}Color"]
+                                if (color == null && state.contains(":")) {  // state is a range of values
+                                    def stateRangeString = state.split(":")
+                                    def stateRange = []
+                                    stateRange[0] = new BigDecimal(stateRangeString[0]).setScale(0, java.math.RoundingMode.HALF_UP)      
+                                    stateRange[1] = new BigDecimal(stateRangeString[1]).setScale(1, java.math.RoundingMode.HALF_UP)
+                                    def dataValue = new BigDecimal(tdata.value).setScale(2, java.math.RoundingMode.HALF_UP)
+                                    if (stateRange[0] != null && stateRange[1] != null) {
+                                        if (dataValue >= stateRange[0] && dataValue <= stateRange[1]) color = stateColor
+                                    }
+                                    else log.warn "In eventChartingHandler - state range ignored because contains non-numeric values. Min value parsed is ${stateRange[0]} and max value parsed is ${stateRange[1]}"
+                                }
+                                else if (color == null && state != null && state.contains(tdata.value)) color = stateColor
+                            }
+                        } 
+                        if (gType == "radialGauge" && color == null && trackFillColor != null) color = trackFillColor
+                        else if (gType == "progressBar" && color == null && barColor != null) color = barColor
+                        theDataset += "backgroundColor:'" + color + "',"
                         if (hasBar(gType)) {
                             theDataset += "barThickness:'" + globalBarThickness + "',"
                             theDataset += "borderColor:'transparent',"
@@ -924,36 +951,55 @@ def eventChartingHandler(eventMap) {
                         }
                         else if(logEnable) log.debug "In eventChartingHandler - Skipped adding ${tdata.value} because alreaday included in legend items"
 
+                        def color = null
+                        def bThickness = null
                         if (customizeStates) {    
-                            def color = null
-                            def bThickness = null
                             for (i=1; i <= numStates; i++) {
-                                if (settings["state${i}"] != null && settings["state${i}"].contains(tdata.value)) {
-                                    if (color == null) color = settings["state${i}Color"]
-                                    if (bThickness == null) bThickness = settings["state${i}BarThickness"]
+                                def state = settings["state${i}"]
+                                def stateColor = settings["state${i}Color"]
+                                def stateBarThickness = settings["state${i}BarThickness"]
+                                if (state != null && state.contains(":")) {  // state is a range of values
+                                    def stateRangeString = state.split(":")
+                                    def stateRange = []
+                                    stateRange[0] = new BigDecimal(stateRangeString[0]).setScale(0, java.math.RoundingMode.HALF_UP)      
+                                    stateRange[1] = new BigDecimal(stateRangeString[1]).setScale(1, java.math.RoundingMode.HALF_UP)
+                                    def dataValue = new BigDecimal(tdata.value).setScale(2, java.math.RoundingMode.HALF_UP)
+                                    if (stateRange[0] != null && stateRange[1] != null) {
+                                        if (dataValue >= stateRange[0] && dataValue <= stateRange[1]) {
+                                            if (color == null) color = stateColor
+                                            if (bThickness == null) bThickness = stateBarThickness
+                                        }
+                                    }
+                                    else log.warn "In eventChartingHandler - state range ignored because contains non-numeric values. Min value parsed is ${stateRange[0]} and max value parsed is ${stateRange[1]}"
+                                }
+                                else if (state != null && state.contains(tdata.value)) {
+                                    if (color == null) color = stateColor
+                                    if (bThickness == null) bThickness = stateBarThickness
                                 }
                             }
-                                 if (color == null) {
-                                     if(logEnable) log.debug "In eventChartingHandler - No color found for state ${tdata.value}. Using default color"
-                                     color = 'black'
-                                 }
-                                if (bThickness == null) {
-                                    if(logEnable) log.debug "In eventChartingHandler - No bar thickness found for state ${tdata.value}. Using default thickness"
-                                    bThickness = 30
-                                }
-                                theDataset += ", barThickness: ${bThickness}"
-                                theDataset += ",backgroundColor:'${color}'"
+                            if (color == null) {
+                                if(logEnable) log.debug "In eventChartingHandler - No color found for state ${tdata.value}. Using default color"
+                                color = 'black'
+                            }
+                            if (bThickness == null) {
+                                if(logEnable) log.debug "In eventChartingHandler - No bar thickness found for state ${tdata.value}. Using default thickness"
+                                bThickness = 30
+                            }
                         }   
                         else {                        
-                            theDataset += ", barThickness: ${globalBarThickness}"
+                            bThickness = globalBarThickness
                             
                             def theGreenData = ["active", "open", "locked", "present", "on", "open", "true", "dry"]
                             def theRedData = ["inactive", "closed", "unlocked", "not present", "off", "closed", "false", "wet"]
                         
-                            if (theGreenData.contains(tdata.value)) theDataset += ",backgroundColor:'green'"
-                            else if (theRedData.contains(tdata.value)) theDataset += ",backgroundColor:'red'"
+                            if (theGreenData.contains(tdata.value)) color = "green"
+                            else if (theRedData.contains(tdata.value)) color = "red"
                         }
-                        
+                        theDataset += ",barThickness: ${bThickness}"
+                        theDataset += ",backgroundColor:'${color}'"
+                        theDataset += ",borderColor:'${color}'"
+                        theDataset += ",borderWidth:1"
+                      //  theDataset += ",borderSkipped:'false'"
                         theDataset += "}"
                        
                         y++
