@@ -36,7 +36,7 @@
  * ------------------------------------------------------------------------------------------------------------------------------
  *
  *  Changes:
- *  0.5.0 - 02/22/22 - Reorganize User Interface to be more flexible for other chart types; Added support for radial gauge chart and progress bar; Added user-defined chart height; Added global hub security credentials
+ *  0.5.0 - 02/22/22 - Reorganize User Interface to be more flexible for other chart types; Added support for radial gauge chart and progress bar; Added user-defined chart height
  *  0.4.3 - 02/17/22 - Bug fixes; X-Axis origin; Persistent last data point optional; Update chart with device attribute value; Custom bar thickness
  *  0.4.2 - 12/01/22 - Fixes a minor bug
  *  0.4.1 - 11/02/22 - Added Bar Chart Width Configurabiity; Improved Legend Configurability - @JustinL
