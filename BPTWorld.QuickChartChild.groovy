@@ -36,7 +36,7 @@
  * ------------------------------------------------------------------------------------------------------------------------------
  *
  *  Changes:
- *  0.5.0 - 02/22/22 - Reorganize User Interface to be more flexible for other chart types; Added support for radial gauge chart and progress bar
+ *  0.5.0 - 02/22/22 - Reorganize User Interface to be more flexible for other chart types; Added support for radial gauge chart and progress bar; Added user-defined chart height; Added global hub security credentials
  *  0.4.3 - 02/17/22 - Bug fixes; X-Axis origin; Persistent last data point optional; Update chart with device attribute value; Custom bar thickness
  *  0.4.2 - 12/01/22 - Fixes a minor bug
  *  0.4.1 - 11/02/22 - Added Bar Chart Width Configurabiity; Improved Legend Configurability - @JustinL
@@ -95,11 +95,12 @@ def pageConfig() {
         }
         
         section(getFormat("header-green", "${getImage("Blank")}"+" Chart Options")) {
-            input "gType", "enum", title: "Chart Style", options: ["bar","line", "horizontalBar","stateTiming","radar","pie","doughnut","polar","scatter","bubble","gauge","radialGauge","violin","sparkline","progressBar",""], submitOnChange:true, width:6, required: true
+            input "gType", "enum", title: "Chart Style", options: ["bar","line", "horizontalBar","stateTiming","radar","pie","doughnut","polar","scatter","bubble","gauge","radialGauge","violin","sparkline","progressBar",""], submitOnChange:true, width:4, required: true
             def chartConfigType = getChartConfigType(gType)
             def axisType = getChartAxisType(gType)
             
-            input "theChartTitle", "text", title: "Chart Title", submitOnChange:true, width:6            
+            input "theChartTitle", "text", title: "Chart Title", submitOnChange:true, width:4   
+            input "chartHeight", "number", title: "Chart Height (pixels)", description: "Leave Blank for Default Height", submitOnChange:false, width: 4         
             input "bkgrdColor", "text", title: "Background Color", defaultValue:"white", submitOnChange:false, width: 4
             input "labelColor", "text", title: "Label Color", defaultValue:"black", submitOnChange:false, width: 4
 
@@ -1185,7 +1186,8 @@ def eventChartingHandler(eventMap) {
         }
 
         chartMap = [format: "png", backgroundColor: bkgrdColor, chart: buildChart]  
-        if (height != null) chartMap['height'] = height              
+        if (chartHeight) chartMap['height'] = chartHeight 
+        else if (height != null) chartMap['height'] = height              
         def chartJson = new JsonOutput().toJson(chartMap)                
         def shortURLResponse = sendJsonGetShortURL(chartJson)
         if (shortURLResponse != null && shortURLResponse.url != null) {
