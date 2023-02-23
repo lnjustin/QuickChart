@@ -751,7 +751,7 @@ def eventChartingHandler(eventMap) {
                 else if (gType == "progressBar") {
                     buildChart += ",plugins:{"
                     buildChart      += "roundedBars: { cornerRadius: 4, allCorners: true, }"
-                    buildChart      += ",datalabels: { formatter: (val) => { return val.toLocaleString() + '" + (valueUnits ? valueUnits : '%') + "';},}"
+                    buildChart      += ",datalabels: { color:'" + labelColor + "', formatter: (val) => { return val.toLocaleString() + '" + (valueUnits ? valueUnits : '%') + "';},}"
                     buildChart += "}"
                 }
                 buildChart += ",title: {display: ${(theChartTitle != "" && theChartTitle != null) ? 'true' : 'false'}, text: '${theChartTitle}', fontColor: '${labelColor}'}"
