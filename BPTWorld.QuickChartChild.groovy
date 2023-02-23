@@ -395,7 +395,7 @@ def pointDataChartConfig() {
 
         input "roundedCorners", "bool", title:"Rounded Corners?", width: 4, required: true, defaultValue: false
         input "centerFillColor", "text", title: "Center Background Color", defaultValue:"white", submitOnChange: false, width: 6
-        input "centerImage", "text", title: "Center Background Image", defaultValue:"", submitOnChange: false, width: 6
+        input "centerImage", "text", title: "Center Background Image", description: "Overrides any specified center color", defaultValue:"", submitOnChange: false, width: 6
         input "centerSubText", "text", title: "Center Subtext", defaultValue:"", submitOnChange: false, width: 6
         input "centerPercentage", "number", title: "Center Size (Percentage)", width: 6
         input "trackColor", "text", title: "Track Background Color", defaultValue:"gray", submitOnChange:false, width: 6
@@ -764,6 +764,7 @@ def eventChartingHandler(eventMap) {
                 buildChart += ",options: {"   
                 buildChart += "fontColor:'" + labelColor + "'"
                 if (gType == "radialGauge") {   
+                    if (centerImage != null && centerImage != "") buildChart += ",plugins:{backgroundImageUrl:'" + centerImage + "'}"
                     buildChart += ",domain: [" + domainMin + "," + domainMax + "]"
                     buildChart += ",trackColor:'" + trackColor + "'"
                     buildChart += ",centerPercentage:" + centerPercentage
@@ -771,8 +772,7 @@ def eventChartingHandler(eventMap) {
                     buildChart += ",elements: { arc: { borderColor: '" + (arcBorderColor ? arcBorderColor : "white") + "', borderWidth: " + (arcBorderWidth ? arcBorderWidth : 0 ) + " } }"
                     buildChart += ",centerArea:{"
                     buildChart += "text: (val) => val + '" + (valueUnits != null ? valueUnits : "") + "'"
-                    if (centerImage != null && centerImage != "") buildChart += ",backgroundImage:'" + centerImage + "'"
-                    if (centerFillColor != null && centerFillColor != "") buildChart += ",backgroundColor:'" + centerFillColor + "'"
+                    if (centerFillColor != null && centerFillColor != "" && (centerImage == null || centerImage == "")) buildChart += ",backgroundColor:'" + centerFillColor + "'"
                     if (centerSubText != null && centerSubText != "") buildChart += ",subText:'" + centerSubText + "'"
                     buildChart += "}"
                 }
