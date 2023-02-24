@@ -103,6 +103,8 @@ def pageConfig() {
             input "chartHeight", "number", title: "Chart Height (pixels)", description: "Leave Blank for Default Height", submitOnChange:false, width: 4         
             input "bkgrdColor", "text", title: "Background Color", defaultValue:"white", submitOnChange:false, width: 4
             input "labelColor", "text", title: "Label Color", defaultValue:"black", submitOnChange:false, width: 4
+            input "labelSize", "number", title: "Label size (pixels)", submitOnChange:false, width: 4
+
 
             if (hasGrid(gType)) input "gridColor", "text", title: "Grid Color", defaultValue:"black", submitOnChange:false, width: 4   
             if (hasBar(gType)) {
@@ -393,7 +395,6 @@ def XYAxisConfig() {
 def pointDataChartConfig() {
     if (gType == "radialGauge") {
 
-        input "roundedCorners", "bool", title:"Rounded Corners?", width: 4, required: true, defaultValue: false
         input "centerFillColor", "text", title: "Center Background Color", defaultValue:"white", submitOnChange: false, width: 6
         input "centerImage", "text", title: "Center Background Image", description: "Overrides any specified center color", defaultValue:"", submitOnChange: false, width: 6
         input "centerSubText", "text", title: "Center Subtext", defaultValue:"", submitOnChange: false, width: 6
@@ -402,6 +403,7 @@ def pointDataChartConfig() {
         input "trackFillColor", "text", title: "Track Fill Color", defaultValue:"green", submitOnChange: false, width: 6
         input "arcBorderWidth", "number", title: "Outline Width", width: 6, defaultValue: 0
         input "arcBorderColor", "text", title: "Outline Color", width: 6, defaultValue: ""
+        input "roundedCorners", "bool", title:"Rounded Corners?", width: 6, required: true, defaultValue: false
         deviceInput(false, false) 
         input "valueUnits", "text", title: "Value Units", defaultValue:"", submitOnChange: false, width: 4
         input "domainMin", "number", title: "Minimum Possible Value", submitOnChange:false, width: 4, required: true
@@ -774,12 +776,18 @@ def eventChartingHandler(eventMap) {
                     buildChart += "text: (val) => val + '" + (valueUnits != null ? valueUnits : "") + "'"
                     if (centerFillColor != null && centerFillColor != "" && (centerImage == null || centerImage == "")) buildChart += ",backgroundColor:'" + centerFillColor + "'"
                     if (centerSubText != null && centerSubText != "") buildChart += ",subText:'" + centerSubText + "'"
+                    buildChart += ",padding:0"
+                    if (labelColor) buildChart += ",fontColor:'" + labelColor + "'"
+                    if (labelSize) buildChart += ",fontSize:" + labelSize
                     buildChart += "}"
                 }
                 else if (gType == "progressBar") {
                     buildChart += ",plugins:{"
                     buildChart      += "roundedBars: { cornerRadius: 4, allCorners: true, }"
-                    buildChart      += ",datalabels: { color:'" + labelColor + "', formatter: (val) => { return val.toLocaleString() + '" + (valueUnits ? valueUnits : '%') + "';},}"
+                    buildChart      += ",datalabels: { "
+                    if (labelColor) buildChart += "color:'" + labelColor + "',"
+                    if (labelSize)  buildChart += "size:" + labelSize
+                    buildChart      += "formatter: (val) => { return val.toLocaleString() + '" + (valueUnits ? valueUnits : '%') + "';},}"
                     buildChart += "}"
                 }
                 buildChart += ",title: {display: ${(theChartTitle != "" && theChartTitle != null) ? 'true' : 'false'}, text: '${theChartTitle}', fontColor: '${labelColor}'}"
@@ -1033,7 +1041,9 @@ def eventChartingHandler(eventMap) {
                 if(logEnable) log.debug "In eventChartingHandler - the datasets: ${theDatasets}"
                 buildChart += ",data:{labels:${theLabels},datasets:${theDatasets}}"        
                 buildChart += ",options: {"     
-                buildChart += "title: {display: ${(theChartTitle != "" && theChartTitle != null) ? 'true' : 'false'}, text: '${theChartTitle}', fontColor: '${labelColor}'}"
+                buildChart += "title: {display: ${(theChartTitle != "" && theChartTitle != null) ? 'true' : 'false'}, text: '${theChartTitle}'"
+                if (labelColor) buildChart += ", fontColor: '${labelColor}'"
+                buildChart += "}"
   
                 // filter out redundant legend items
                 def legendFilterLogic = ""
