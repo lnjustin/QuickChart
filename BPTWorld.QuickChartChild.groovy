@@ -541,7 +541,7 @@ def getEvents() {
             theDevice.each { theD ->
                 theAtt.each { att ->
                     theKey = "${theD};${att.capitalize()}"
-                    def dataPoint = theDe.currentValue(theAtt)
+                    def dataPoint = theD.currentValue(att)
                     def dataMap =[]
                     dataMap << [date:new Date(),value:dataPoint]
                     eventMap.put(theKey, dataMap)
@@ -727,16 +727,16 @@ def eventChartingHandler(eventMap) {
         if (getChartConfigType(gType) == "pointData") {
             
             if(eventMap) {
+                theDatasets = []
+                theData = []
+                theBackgroundColor = []
+                theBarThickness = []
+                theBorderColor = []
                 eventMap.each { it ->  
                     (theDev,theAtt) = it.key.split(";")
                     theD = it.value
-                
-                    theDatasets = []
-                    if(logEnable) log.debug "In eventChartingHandler - building dataset for ${theAtt} from data: ${theD}"
-                
                     theD.each { tdata ->
-                        def theDataset = "{"
-                        theDataset += "data:[${tdata.value}],"
+                        theData << tdata.value
                         def color = null
                         if (customizeStates) {    
                             for (i=1; i <= numStates; i++) {
@@ -758,29 +758,34 @@ def eventChartingHandler(eventMap) {
                         } 
                         if (gType == "radialGauge" && color == null && trackFillColor != null) color = trackFillColor
                         else if (gType == "progressBar" && color == null && barColor != null) color = barColor
-                        theDataset += "backgroundColor:'" + color + "',"
+                        theBackgroundColor << "'" + color + "'"
                         if (hasBar(gType)) {
-                            theDataset += "barThickness:'" + globalBarThickness + "',"
-                            theDataset += "borderColor:'transparent',"
+                            theBarThickness << "'" + globalBarThickness + "'"
+                            theBorderColor << "'transparent'"
                         }
-                        theDataset += "}"
-                        theDatasets << theDataset
                     }
                 }
+                def theDataset = "{"
+                theDataset += "data:" + theData + ","
+                theDataset += "backgroundColor:" + theBackgroundColor + ","
+                theDataset += "barThickness:" + globalBarThickness + ","
+                theDataset += "borderColor:" + theBorderColor + ","
+                theDataset += "}"
+                theDatasets << theDataset
 
                 if (gType == "progressBar") {
-                    def theDataset = "{"
-                    theDataset += "data:[" + (maxProgress ? maxProgress : 100) + "],"
-                    if (progressTrackColor != null) theDataset += "backgroundColor:'" + progressTrackColor + "',"
-                    theDataset += "barThickness:'" + globalBarThickness + "',"
-                    theDataset += "borderColor:'" + progressTrackColor + "',"
-                    theDataset += "}"
-                    theDatasets << theDataset
+                    def theDataset2 = "{"
+                    theDataset2 += "data:[" + (maxProgress ? maxProgress : 100) + "],"
+                    if (progressTrackColor != null) theDataset2 += "backgroundColor:'" + progressTrackColor + "',"
+                    theDataset2 += "barThickness:'" + globalBarThickness + "',"
+                    theDataset2 += "borderColor:'" + progressTrackColor + "',"
+                    theDataset2 += "}"
+                    theDatasets << theDataset2
                     height = globalBarThickness
                 }
 
                 if(logEnable) log.debug "In eventChartingHandler - the datasets: ${theDatasets}"
-                buildChart += ",data:{datasets:${theDatasets}}"        
+                buildChart += ",data:{datasets:" + theDatasets + "}"        
 
                 buildChart += ",options: {"   
                 buildChart += "fontColor:'" + labelColor + "'"
