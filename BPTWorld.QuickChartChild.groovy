@@ -417,18 +417,8 @@ def pointDataChartConfig() {
         input "maxProgress", "number", title: "Maximum Progress Value", width: 6, defaultValue: 100
     }
     else if (gType == "doughnut") {
-        input "centerFillColor", "text", title: "Center Background Color", defaultValue:"white", submitOnChange: false, width: 6
-        input "centerImage", "text", title: "Center Background Image", description: "Overrides any specified center color", defaultValue:"", submitOnChange: false, width: 6
-        input "centerSubText", "text", title: "Center Subtext", defaultValue:"", submitOnChange: false, width: 6
-        input "centerPercentage", "number", title: "Center Size (Percentage)", width: 6
-        input "trackColor", "text", title: "Track Background Color", defaultValue:"gray", submitOnChange:false, width: 6
-        input "trackFillColor", "text", title: "Track Fill Color", defaultValue:"green", submitOnChange: false, width: 6
-        input "arcBorderWidth", "number", title: "Outline Width", width: 6, defaultValue: 0
-        input "arcBorderColor", "text", title: "Outline Color", width: 6, defaultValue: ""
-        input "roundedCorners", "bool", title:"Rounded Corners?", width: 6, required: true, defaultValue: false
         deviceInput(true, true, true, false) 
         input "valueUnits", "text", title: "Value Units", defaultValue:"%", submitOnChange: false, width: 6
-        input "maxProgress", "number", title: "Maximum Progress Value", width: 6, defaultValue: 100
     }
     customStateInput()
 }
@@ -548,11 +538,15 @@ def getEvents() {
         if(logEnable) log.debug "----------------------------------------------- Start Quick Chart -----------------------------------------------"
         if (getChartConfigType(gType) == "pointData") {
             def eventMap = [:]
-            def theKey = "${theDevice};${theAtt}"
-            def dataPoint = theDevice.currentValue(theAtt)
-            def dataMap =[]
-            dataMap << [date:new Date(),value:dataPoint]
-            eventMap.put(theKey, dataMap)
+            theDevice.each { theD ->
+                theAtt.each { att ->
+                    theKey = "${theD};${att.capitalize()}"
+                    def dataPoint = theDe.currentValue(theAtt)
+                    def dataMap =[]
+                    dataMap << [date:new Date(),value:dataPoint]
+                    eventMap.put(theKey, dataMap)
+                }
+            }
             eventChartingHandler(eventMap)
         }
         else if(dataSource) {
