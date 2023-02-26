@@ -291,10 +291,10 @@ def customStateInput() {
     input "customizeStates", "bool", title: "Customize State Colors ${customizeBar ? 'and/or Bar Thickness?' : ''}", defaultValue:false, submitOnChange:true, width: 12
     if (customizeStates) {    
         input "customStateCriteria", "enum", title: "Customize States By...", options: ["Value","Device","Attribute"], submitOnChange:true, width:6
-        def instructions = "<small>State Color" + (customizeBar ? ' and Bar Thickness' : '') + " is set to the color" + (customizeBar ? ' and bar thickness' : '') + " specified for whatever state matches first, overriding any global settings specified above."
+        def instructions = "<small>State Color" + (customizeBar ? ' and Bar Thickness' : '') + " is set to the color" + (customizeBar ? ' and bar thickness' : '') + " specified for whatever state matches first, overriding any global settings specified above. </small>"
         if (customStateCriteria == "Value") {
             input "numStates", "number", title: "How many states?", defaultValue:2, submitOnChange:true, width: 6
-            instructions += " States can be defined as a single text value, a single numeric value, or a range of numeric values. Define a range of numeric values as MIN:MAX (example: 1:50). Ranges are inclusive of both MIN and MAX. </small>"
+            instructions += "<small> States can be defined as a single text value, a single numeric value, or a range of numeric values. Define a range of numeric values as MIN:MAX (example: 1:50). Ranges are inclusive of both MIN and MAX. </small>"
             paragraph instructions
             if (!numStates) app.updateSetting("numStates",[type:"number",value:2]) 
             if (numStates) {
@@ -309,18 +309,16 @@ def customStateInput() {
            paragraph instructions
             for (i=1; i <= theDevice.size(); i++) {
                 def sanitizedDevice = theDevice[i-1].replaceAll("\\s","").toLowerCase()
-                input "state${sanitizedDevice}", "enum", options:[('${theDevice[i-1]}') : sanitizedDevice], defaultValue:theDevice[i-1], title: theDevice[i-1] + " State", submitOnChange:false, width: 6
-                input "state${sanitizedDevice}Color", "text", title: "Color", submitOnChange:false, width: 6
-                if (customizeBar) input "state${sanitizedDevice}BarThickness", "number", title: "Bar Thickness", defaultValue: 30, submitOnChange:false, width: 6
+                input "state${sanitizedDevice}Color", "text", title: theDevice[i-1] + "Color", submitOnChange:false, width: inputWidth
+                if (customizeBar) input "state${sanitizedDevice}BarThickness", "number", title: theDevice[i-1] + "Bar Thickness", defaultValue: 30, submitOnChange:false, width: inputWidth
             }
         }
         else if (customStateCriteria == "Attribute") { 
            paragraph instructions
             for (i=1; i <= theAtt.size(); i++) {
                 def sanitizedAtt = theAtt[i-1].replaceAll("\\s","").toLowerCase()
-                input "state${sanitizedAtt}", "enum", options:[sanitizedAtt], defaultValue: sanitizedAtt, title: sanitizedAtt + " State", submitOnChange:false, width: 6
-                input "state${sanitizedAtt}Color", "text", title: "Color", submitOnChange:false, width: 6
-                if (customizeBar) input "state${sanitizedAtt}BarThickness", "number", title: "Bar Thickness", defaultValue: 30, submitOnChange:false, width: 6
+                input "state${sanitizedAtt}Color", "text", title: theAtt[i-1] + " Color", submitOnChange:false, width: inputWidth
+                if (customizeBar) input "state${sanitizedAtt}BarThickness", "number", title: theAtt[i-1] + " Bar Thickness", defaultValue: 30, submitOnChange:false, width: inputWidth
             }
         }  
     }
@@ -424,7 +422,7 @@ def pointDataChartConfig() {
         input "arcBorderColor", "text", title: "Outline Color", width: 6, defaultValue: ""
         input "roundedCorners", "bool", title:"Rounded Corners?", width: 6, required: true, defaultValue: false
         deviceInput(false, false) 
-        input "valueUnits", "text", title: "Value Units", defaultValue:"", submitOnChange: false, width: 4
+        input "valueUnits", "text", title: "Add Value Units Suffix", defaultValue:"", submitOnChange: false, width: 4
         input "domainMin", "number", title: "Minimum Possible Value", submitOnChange:false, width: 4, required: true
         input "domainMax", "number", title: "Maximum Possible Value", submitOnChange:false, width: 4, required: true
         
@@ -432,7 +430,7 @@ def pointDataChartConfig() {
     else if (gType == "progressBar") {
         input "progressTrackColor", "text", title: "Progress Track Color", defaultValue:"gray", submitOnChange: false, width: 4
         deviceInput(false, false) 
-        input "valueUnits", "text", title: "Value Units", defaultValue:"%", submitOnChange: false, width: 6
+        input "valueUnits", "text", title: "Add Value Units Suffix", defaultValue:"%", submitOnChange: false, width: 6
         input "maxProgress", "number", title: "Maximum Progress Value", width: 6, defaultValue: 100
     }
     customStateInput()
@@ -440,8 +438,29 @@ def pointDataChartConfig() {
 
 def comparisonDataChartConfig() {
     if (gType == "doughnut") {
-        deviceInput(true, true, true, false) 
-        input "valueUnits", "text", title: "Value Units", defaultValue:"%", submitOnChange: false, width: 6
+        input "centerPercentage", "number", title: "Center Size (Percentage)", width: 4
+        input "circumference", "decimal", title: "Circumference (* pi)", width: 4
+        input "rotation", "decimal", title: "Rotation (* pi)", width: 4
+        deviceInput(true, true, true, false)      
+        input "valueUnitsSuffix", "bool", title: "Add Value Units Suffix to Data Labels?", defaultValue:false, submitOnChange:true, width: valueUnitsSuffix ? 6 : 12
+        if (valueUnitsSuffix) {
+            input "valueUnits", "text", title: "Value Units Suffix", submitOnChange: false, width: 6
+        }
+        input "durationLabel", "bool", title: "Display as Duration Data Label?", defaultValue:false, submitOnChange:true, width: 12
+        if (durationLabel) {
+            input "attributeValueTimeUnits", "enum", title: "Select Attribute Value Time Units", options: ["minutes", "seconds"], submitOnChange: false, width: 12
+            input "showHourTimeUnits", "bool", title: "Show Hours if > 0?", submitOnChange: false, width: 4
+            input "showMinTimeUnits", "bool", title: "Show Minutes if > 0?", submitOnChange: false, width: 4
+            input "showSecTimeUnits", "bool", title: "Show Seconds if > 0?", submitOnChange: false, width: 4
+        }
+        input "addPercentageSubLabel", "bool", title: "Add Percentage Sublabel?", defaultValue:false, submitOnChange:false, width: 12
+        if (addPercentageSubLabel) input "percentPosition", "enum", title: "Percent Position", options: ["end" : "Outside Circle", "bottom" : "Under Value"], submitOnChange: false, width: 4
+        input "sumTotalInCenter", "bool", title:"Show sum total in center?", width: 6, required: true, defaultValue: false, submitOnChange: true
+        if (sumTotalInCenter) {
+            input "centerTextColor", "text", title: "Center Text Color", width: 4
+            input "centerTextSize", "number", title: "Center Text Size", width: 4
+        }
+
     }
     customStateInput()
 }
@@ -839,8 +858,8 @@ def eventChartingHandler(eventMap) {
                     buildChart      += "roundedBars: { cornerRadius: 4, allCorners: true, }"
                     buildChart      += ",datalabels: { "
                     if (labelColor) buildChart += "color:'" + labelColor + "',"
-                    if (labelSize)  buildChart += "size:" + labelSize
-                    buildChart      += "formatter: (val) => { return val.toLocaleString() + '" + (valueUnits ? valueUnits : '%') + "';},}"
+                    if (labelSize)  buildChart += "size:" + labelSize + "',"
+                    buildChart      += "formatter: (val) => { return val.toLocaleString() + ' " + (valueUnits ? valueUnits : '%') + "';},}"
                     buildChart += "}"
                 }
                 buildChart += ",title: {display: ${(theChartTitle != "" && theChartTitle != null) ? 'true' : 'false'}, text: '${theChartTitle}', fontColor: '${labelColor}'}"
@@ -853,11 +872,14 @@ def eventChartingHandler(eventMap) {
                 theDatasets = []
                 theData = []
                 theBackgroundColor = []
+                def sum = 0
                 eventMap.each { it ->  
                     (theDev,theAttribute) = it.key.split(";")
                     theD = it.value
                     theD.each { tdata ->
                         theData << tdata.value
+                        def dataValue = new BigDecimal(tdata.value).setScale(2, java.math.RoundingMode.HALF_UP)
+                        sum += dataValue as Double
                         def color = null
                         if (customizeStates) {    
                             if (customStateCriteria == "Value") {
@@ -869,7 +891,6 @@ def eventChartingHandler(eventMap) {
                                         def stateRange = []
                                         stateRange[0] = new BigDecimal(stateRangeString[0]).setScale(0, java.math.RoundingMode.HALF_UP)      
                                         stateRange[1] = new BigDecimal(stateRangeString[1]).setScale(1, java.math.RoundingMode.HALF_UP)
-                                        def dataValue = new BigDecimal(tdata.value).setScale(2, java.math.RoundingMode.HALF_UP)
                                         if (stateRange[0] != null && stateRange[1] != null) {
                                             if (dataValue >= stateRange[0] && dataValue <= stateRange[1]) color = stateColor
                                         }
@@ -886,7 +907,6 @@ def eventChartingHandler(eventMap) {
                             else if (customStateCriteria == "Attribute") { 
                                 def sanitizedAtt = theAttribute.replaceAll("\\s","").toLowerCase()
                                 def stateColor = settings["state${sanitizedAtt}Color"]
-                                if(logEnable) log.debug "sanitizedAtt = ${sanitizedAtt}. stateColor = ${stateColor}}"
                                 if (color == null && stateColor != null) color = stateColor
                             }  
                             if (color != null) theBackgroundColor << "'" + color + "'"
@@ -896,7 +916,49 @@ def eventChartingHandler(eventMap) {
                 def theDataset = "{"
                 theDataset += "data:" + theData + ","
                 if (theBackgroundColor != null && theBackgroundColor.size() > 0) theDataset += "backgroundColor:" + theBackgroundColor + ","
-                theDataset += "}"
+                theDataset += "datalabels: { labels: { "
+
+                theDataset += "name: { align: 'middle', " // start of name datalabel
+                if (labelColor) theDataset += "color:'" + labelColor + "',"
+                if (labelSize)  theDataset += "font: { size:" + labelSize + "},"
+                if (durationLabel) {
+                    theDataset += "formatter: function(value,context) {"
+                    if (attributeValueTimeUnits == "seconds") {
+                        theDataset += "var hours = Math.floor(value / 3600);"
+                        theDataset += "var mins = Math.floor((value % 3600) / 60);"
+                        theDataset += "var secs = Math.floor(value % 60);" 
+                    }
+                    else if (attributeValueTimeUnits == "minutes") {
+                        theDataset += "var hours = Math.floor(value / 60);"
+                        theDataset += "var mins = Math.floor((value % 60) / 60);"
+                        theDataset += "var secs = 0;" 
+                    }
+                    theDataset += "var label = '';"
+                    if (showHourTimeUnits) theDataset += "if (hours > 0) { label += hours + 'h';}"
+                    if (showMinTimeUnits) theDataset += "if (mins > 0) { label += mins + 'm';}"
+                    if (showSecTimeUnits) theDataset += "if (secs > 0) { label += secs + 's';}"
+                }
+                else theDataset += "formatter: function(value,context) { var label = value.toLocaleString()" + ((valueUnitsSuffix && valueUnits != null) ? (" + ' " + valueUnits + '%') : "") + ";"
+                theDataset += "return label;}"
+                theDataset += "}" // end of name datalabel
+
+                if (addPercentageSubLabel) {
+                    theDataset += ",value: {"
+                    theDataset += "align:'" + (percentPosition ? percentPosition : 'bottom') + "',"
+                    if (percentPosition == "end") theDataset += "anchor: 'end',"
+                    if (labelColor) theDataset += "color:'" + labelColor + "',"
+                    if (labelSize)  theDataset += "font: { size:" + labelSize + "},"
+                    theDataset += "formatter: function(value,context) {"
+                    theDataset += "var sum = 0;"
+                    theDataset += "for (var i=0; i < context.chart.data.datasets[0].data.length; i++) {"
+                    theDataset +=     "sum += context.chart.data.datasets[0].data[i];"
+                    theDataset += "}"
+                    theDataset += "var percent = Math.floor((value / sum)*100);"
+                    theDataset += "return '(' + percent + '%)';}"
+                    theDataset += "}" // end of value datalabel
+                }
+                theDataset += "}}" // end of labels and datalabels
+                theDataset += "}" // end of dataset
                 theDatasets << theDataset
 
                 if(logEnable) log.debug "In eventChartingHandler - the datasets: ${theDatasets}"
@@ -904,9 +966,58 @@ def eventChartingHandler(eventMap) {
 
                 buildChart += ",options: {"   
                 buildChart += "fontColor:'" + labelColor + "'"
+                if (centerPercentage) buildChart += ",cutoutPercentage:" + centerPercentage
+                if (circumference) buildChart += ",circumference:" + circumference * Math.PI
+                if (rotation) buildChart += ",rotation:" + rotation * Math.PI
+                if (sumTotalInCenter) {
+
+                    def centerText = ""
+                    def centerTextBelow = ""
+                    if (durationLabel) {
+                        Integer hours = 0
+                        Integer mins = 0
+                        Integer secs = 0
+                        sum = Math.floor(sum) as Integer
+                        if (attributeValueTimeUnits == "seconds") {
+                            hours = Math.floor(sum / 3600)
+                            mins = Math.floor((sum % 3600) / 60)
+                            secs = Math.floor(sum % 60)
+                        }
+                        else if (attributeValueTimeUnits == "minutes") {
+                            hours = Math.floor(sum / 60)
+                            mins = Math.floor((sum % 60) / 60)
+                            secs = 0
+                        }
+                        if (showHourTimeUnits && hours > 0) centerText += hours + 'h'
+                        if (showMinTimeUnits && mins > 0) centerText += mins + 'm'
+                        if (showSecTimeUnits && secs > 0) centerText += secs + 's'
+                    }
+                    else if (valueUnitsSuffix && valueUnits != null) {
+                        centerText = sum.toLocaleString() 
+                        centerTextBelow = valueUnits
+                    }
+                    else centerText = sum.toLocaleString()
+
+                    buildChart += ",plugins:{"
+                    buildChart      += "doughnutlabel: {"
+                    buildChart      += "labels: ["
+                    buildChart          += "{ text: '" + centerText + "',"
+                    if (centerTextColor) buildChart += "color:'" + centerTextColor + "',"
+                    if (centerTextSize) buildChart += "font: { size: " + centerTextSize + "}"
+                    buildChart          +=   "},"
+                    if (centerTextBelow != "") {
+                        buildChart += "{ text: '" + centerText + "',"
+                        if (centerTextSize) buildChart += "font: { size: " + centerTextSize + "}"
+                        buildChart += "}"
+                    }
+                    buildChart      += "]," // end labels
+                    buildChart += "}," // end doughnutlabels
+                    buildChart += "}"  // end plugins
+                }
                 buildChart += ",title: {display: ${(theChartTitle != "" && theChartTitle != null) ? 'true' : 'false'}, text: '${theChartTitle}', fontColor: '${labelColor}'}"
 
                 buildChart += "}}"
+                if(logEnable) log.debug "builderChart = ${buildChart}"
             }                
         }
         else if (gType == "stateTiming" || state.isNumericalData == false)  {
@@ -1354,7 +1465,7 @@ def eventChartingHandler(eventMap) {
                 buildChart += "}}"
             }
         }
-
+        if(logEnable) log.debug "builderChart = ${buildChart}"
         chartMap = [format: "png", backgroundColor: bkgrdColor, chart: buildChart]  
         if (chartHeight) chartMap['height'] = chartHeight 
         else if (height != null) chartMap['height'] = height              
