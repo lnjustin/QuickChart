@@ -126,6 +126,7 @@ def pageConfig() {
             ]
             if (dataSource || chartConfigType == "pointData") updateTimeOptions.add(["realTime":"Real Time"])
             else updateTimeOptions.add(["attribute":"With Device Attribute Value"])
+            paragraph "<hr><b>Chart Update Configuration</b>"
             input "updateTime", "enum", title: "When to Update", options: updateTimeOptions, defaultValue:"manual", submitOnChange:true, width: 4 
             if (updateTime == "attribute") {
                 input "updateDevice", "capability.*", title: "Select Update Device", multiple:false, submitOnChange:true, width: 12, required: true
@@ -441,11 +442,10 @@ def comparisonDataChartConfig() {
         input "centerPercentage", "number", title: "Center Size (Percentage)", width: 4
         input "circumference", "decimal", title: "Circumference (* pi)", width: 4
         input "rotation", "decimal", title: "Rotation (* pi)", width: 4
-        deviceInput(true, true, true, false)      
+        deviceInput(true, true, true, false)     
+        paragraph "<hr><b>Data Label Configuration</b>" 
         input "valueUnitsSuffix", "bool", title: "Add Value Units Suffix to Data Labels?", defaultValue:false, submitOnChange:true, width: valueUnitsSuffix ? 6 : 12
-        if (valueUnitsSuffix) {
-            input "valueUnits", "text", title: "Value Units Suffix", submitOnChange: false, width: 6
-        }
+        if (valueUnitsSuffix) input "valueUnits", "text", title: "Value Units Suffix", submitOnChange: false, width: 6
         input "durationLabel", "bool", title: "Display as Duration Data Label?", defaultValue:false, submitOnChange:true, width: 12
         if (durationLabel) {
             input "attributeValueTimeUnits", "enum", title: "Select Attribute Value Time Units", options: ["minutes", "seconds"], submitOnChange: false, width: 12
@@ -453,30 +453,68 @@ def comparisonDataChartConfig() {
             input "showMinTimeUnits", "bool", title: "Show Minutes if > 0?", submitOnChange: false, width: 4
             input "showSecTimeUnits", "bool", title: "Show Seconds if > 0?", submitOnChange: false, width: 4
         }
-        input "addPercentageSubLabel", "bool", title: "Add Percentage Sublabel?", defaultValue:false, submitOnChange:false, width: 12
+        input "addPercentageSubLabel", "bool", title: "Add Percentage Sublabel?", defaultValue:false, submitOnChange:true, width: 12
         if (addPercentageSubLabel) input "percentPosition", "enum", title: "Percent Position", options: ["end" : "Outside Circle", "bottom" : "Under Value"], submitOnChange: false, width: 4
-        input "sumTotalInCenter", "bool", title:"Show sum total in center?", width: 6, required: true, defaultValue: false, submitOnChange: true
-        if (sumTotalInCenter) {
-            input "centerTextColor", "text", title: "Center Text Color", width: 4
-            input "centerTextSize", "number", title: "Center Text Size", width: 4
+        customStateInput()
+        paragraph "<hr><b>Center Label Configuration</b>" 
+        input "showTitleInCenter", "bool", title:"Show title in center?", width: 4, required: true, defaultValue: false, submitOnChange: true
+        if (showTitleInCenter) {
+            input "centerTitleSize", "number", title: "Center Title Size", width: 4
+            input "centerTitleColor", "text", title: "Center Title Color", width: 4
+        }
+        input "showDataLabelInCenter", "bool", title:"Show data label in center?", width: 4, required: true, defaultValue: false, submitOnChange: true
+        if (showDataLabelInCenter) {
+            input "centerDataLabelSize", "number", title: "Center Data Label Size", width: 4
+            input "staticCenterLabelColor", "text", title: "Static Center Data Label Color", width: 4
+             input "centerDataLabelType", "enum", title: "Center Data Label Type", options: ["sum" : "Data Sum Total", "attribute" : "Device Attribute Value"], submitOnChange: true, width: 12
+            if (centerDataLabelType == "attribute") {
+                deviceInput(false, false, false, true, false)
+                input "centerDataLabelValueUnitsSuffix", "bool", title: "Add Value Units Suffix to Data Labels?", defaultValue:false, submitOnChange:true, width: 12
+                if (centerDataLabelValueUnitsSuffix) {
+                    input "centerDataLabelValueUnits", "text", title: "Center Label Value Units Suffix", submitOnChange: false, width: 4
+                    input "centerUnitsSize", "number", title: "Center Units Size", width: 4
+                    input "centerUnitsColor", "text", title: "Center Units Color", width: 4
+                }
+                input "centerDurationLabel", "bool", title: "Display Center Label as Duration Data Label?", defaultValue:false, submitOnChange:true, width: 12
+                if (centerDurationLabel) {
+                    input "centerValueTimeUnits", "enum", title: "Select Center Value Time Units", options: ["minutes", "seconds"], submitOnChange: false, width: 12
+                    input "showHourTimeUnitsCenter", "bool", title: "Show Hours if > 0?", submitOnChange: false, width: 4
+                    input "showMinTimeUnitsCenter", "bool", title: "Show Minutes if > 0?", submitOnChange: false, width: 4
+                    input "showSecTimeUnitsCenter", "bool", title: "Show Seconds if > 0?", submitOnChange: false, width: 4
+                }
+            }
+            input "dynamicCenterLabelColor", "bool", title: "Configure Dynamic Center Data Label Color?", defaultValue:false, submitOnChange:true, width: 12
+            if (dynamicCenterLabelColor) {
+                input "dynamicCenterLabelNumStates", "number", title: "How many states?", defaultValue:2, submitOnChange:true, width: 6
+                instructions += "<small> States can be defined as a single text value, a single numeric value, or a range of numeric values. Define a range of numeric values as MIN:MAX (example: 1:50). Ranges are inclusive of both MIN and MAX. </small>"
+                if (!dynamicCenterLabelNumStates) app.updateSetting("dynamicCenterLabelNumStates",[type:"number",value:2]) 
+                if (dynamicCenterLabelNumStates) {
+                    for (i=1; i <= dynamicCenterLabelNumStates; i++) {
+                        input "centerLabelState${i}", "text", title: "State ${i}", submitOnChange:false, width: 6
+                        input "centerLabelState${i}Color", "text", title: "Color", submitOnChange:false, width: 6
+                    }
+                } 
+            }
         }
 
     }
-    customStateInput()
+    
 }
 
-def deviceInput(multipleDevices = false, multipleAttributes = false, onlyOneMultiplicityDimension = false, nonNumberAttributeAllowed = true) {
+def deviceInput(multipleDevices = false, multipleAttributes = false, onlyOneMultiplicityDimension = false, nonNumberAttributeAllowed = true, supplementInput = false) {
     if (multipleDevices && multipleAttributes && onlyOneMultiplicityDimension) paragraph "Select multiple devices with the same attribute (to chart values of the attribute across the devices) or a single device with multiple attributes (to chart the values of the device's attributes)."
 
     def deviceInputTitle = multipleDevices ? "Select the Device(s)" : "Select the Device"
-    input "theDevice", "capability.*", title: deviceInputTitle, multiple:multipleDevices, submitOnChange:true, required: true, width: 12
-    if(theDevice) {
-        labelOptions = []
-        allAttrs = []
-        attTypes = [:]
-        theDevice.each { dev ->
+    def deviceInputName = supplementInput ? "theDeviceSupp" : "theDevice"
+    def attInputName = supplementInput ? "theAttSupp" : "theAtt"
+    input deviceInputName, "capability.*", title: deviceInputTitle, multiple:multipleDevices, submitOnChange:true, required: true, width: 12
+    if (settings[deviceInputName]) {
+        def labelOptions = []
+        def allAttrs = []
+        def attTypes = [:]
+        settings[deviceInputName].each { dev ->
             labelOptions << dev.displayName
-            attributes = dev.supportedAttributes
+            def attributes = dev.supportedAttributes
             attributes.each { att ->
                 def aType = att.getDataType().toLowerCase()
                 if(logEnable) log.debug "Detected attribute type: ${aType}"
@@ -491,16 +529,16 @@ def deviceInput(multipleDevices = false, multipleAttributes = false, onlyOneMult
             }
         }
         if(logEnable) log.debug "Detected attribute types: ${allAttrs}"
-        devAtt = allAttrs.unique().sort()
+        def devAtt = allAttrs.unique().sort()
 
         def attributeReqText = nonNumberAttributeAllowed ? "Attribute(s) must be either all numbers or all non-numbers." : "Attribute(s) must be numbers."
         def attributeTitle = multipleAttributes ? "Select the Attribute(s)<br><small>" + attributeReqText + "</small>" : "Select the Attribute"
-        input "theAtt", "enum", title: attributeTitle, options: devAtt, multiple:multipleAttributes, submitOnChange:true, required: true
+        input attInputName, "enum", title: attributeTitle, options: devAtt, multiple:multipleAttributes, submitOnChange:true, required: true
            
         def anyNonNumber = false
         def anyNumber = false
-        theAtt.each { att ->                        
-            theType = attTypes[att]
+        settings[attInputName].each { att ->                        
+            def theType = attTypes[att]
             if (theType && theType.toLowerCase() == "number") anyNumber = true
             else anyNonNumber = true
         }                    
@@ -510,10 +548,9 @@ def deviceInput(multipleDevices = false, multipleAttributes = false, onlyOneMult
         else if (anyNumber && !anyNonNumber) state.isNumericalData = true
         else if (!anyNumber && anyNonNumber) state.isNumericalData = false
 
-        dataType = "rawdata"
+        if (!supplementInput) dataType = "rawdata"
     } 
 }
-    
 
 def installed() {
     log.debug "Installed with settings: ${settings}"
@@ -969,52 +1006,81 @@ def eventChartingHandler(eventMap) {
                 if (centerPercentage) buildChart += ",cutoutPercentage:" + centerPercentage
                 if (circumference) buildChart += ",circumference:" + circumference * Math.PI
                 if (rotation) buildChart += ",rotation:" + rotation * Math.PI
-                if (sumTotalInCenter) {
-
-                    def centerText = ""
-                    def centerTextBelow = ""
-                    if (durationLabel) {
-                        Integer hours = 0
-                        Integer mins = 0
-                        Integer secs = 0
-                        sum = Math.floor(sum) as Integer
-                        if (attributeValueTimeUnits == "seconds") {
-                            hours = Math.floor(sum / 3600)
-                            mins = Math.floor((sum % 3600) / 60)
-                            secs = Math.floor(sum % 60)
-                        }
-                        else if (attributeValueTimeUnits == "minutes") {
-                            hours = Math.floor(sum / 60)
-                            mins = Math.floor((sum % 60) / 60)
-                            secs = 0
-                        }
-                        if (showHourTimeUnits && hours > 0) centerText += hours + 'h'
-                        if (showMinTimeUnits && mins > 0) centerText += mins + 'm'
-                        if (showSecTimeUnits && secs > 0) centerText += secs + 's'
-                    }
-                    else if (valueUnitsSuffix && valueUnits != null) {
-                        centerText = sum.toLocaleString() 
-                        centerTextBelow = valueUnits
-                    }
-                    else centerText = sum.toLocaleString()
+                if (showTitleInCenter || showDataLabelInCenter) {
 
                     buildChart += ",plugins:{"
                     buildChart      += "doughnutlabel: {"
                     buildChart      += "labels: ["
-                    buildChart          += "{ text: '" + centerText + "',"
-                    if (centerTextColor) buildChart += "color:'" + centerTextColor + "',"
-                    if (centerTextSize) buildChart += "font: { size: " + centerTextSize + "}"
-                    buildChart          +=   "},"
-                    if (centerTextBelow != "") {
-                        buildChart += "{ text: '" + centerText + "',"
-                        if (centerTextSize) buildChart += "font: { size: " + centerTextSize + "}"
+                    if (showTitleInCenter && theChartTitle != "" && theChartTitle != null ) {
+                        buildChart          += "{ text: '" + theChartTitle + "',"
+                        if (centerTitleColor) buildChart += "color:'" + centerTitleColor + "',"
+                        if (centerTitleSize) buildChart += "font: { size: " + centerTitleSize + "}"
+                        buildChart          +=   "},"
+                    }
+                    if (showDataLabelInCenter) {
+                        def centerValue = null
+                        if (centerDataLabelType == "attribute") centerValue = theDeviceSupp.currentValue(theAttSupp)
+                        else if (centerDataLabelType == "sum") centerValue = sum
+
+                        log.debug "center = ${centerValue}"
+                        def centerDataLabelColor = ""
+                        if (!dynamicCenterLabelColor && staticCenterLabelColor != null) centerDataLabelColor = staticCenterLabelColor
+                        else if (dynamicCenterLabelColor) {
+                            for (i=1; i <= centerLabelNumStates; i++) {
+                                def state = settings["centerLabelState${i}"]
+                                def stateColor = settings["centerLabelState${i}Color"]
+                                if (centerDataLabelColor == null && state.contains(":")) {  // state is a range of values
+                                    def stateRangeString = state.split(":")
+                                    def stateRange = []
+                                    stateRange[0] = new BigDecimal(stateRangeString[0]).setScale(0, java.math.RoundingMode.HALF_UP)      
+                                    stateRange[1] = new BigDecimal(stateRangeString[1]).setScale(1, java.math.RoundingMode.HALF_UP)
+                                    if (stateRange[0] != null && stateRange[1] != null) {
+                                        if (centerValue >= stateRange[0] && centerValue <= stateRange[1]) centerDataLabelColor = stateColor
+                                    }
+                                    else log.warn "In eventChartingHandler - state range ignored because contains non-numeric values. Min value parsed is ${stateRange[0]} and max value parsed is ${stateRange[1]}"
+                                }
+                                else if (centerDataLabelColor == null && state != null && state.contains(centerValue)) centerDataLabelColor = stateColor
+                            }                          
+                        }
+
+                        def formattedCenterValue = null
+                        if (centerDurationLabel && centerValue != null) {
+                            Integer hours = 0
+                            Integer mins = 0
+                            Integer secs = 0
+                            centerValue = Math.floor(centerValue) as Integer
+                            if (centerValueTimeUnits == "seconds") {
+                                hours = Math.floor(centerValue / 3600)
+                                mins = Math.floor((centerValue % 3600) / 60)
+                                secs = Math.floor(centerValue % 60)
+                            }
+                            else if (centerValueTimeUnits == "minutes") {
+                                hours = Math.floor(centerValue / 60)
+                                mins = Math.floor((centerValue % 60) / 60)
+                                secs = 0
+                            }
+                            if (showHourTimeUnitsCenter && hours > 0) formattedCenterValue += hours + 'h'
+                            if (showMinTimeUnitsCenter && mins > 0) formattedCenterValue += mins + 'm'
+                            if (showSecTimeUnitsCenter && secs > 0) formattedCenterValue += secs + 's'
+                        }
+                        else if (centerValue != null) formattedCenterValue = centerValue
+
+                        buildChart          += "{ text: '" + formattedCenterValue + "',"
+                        if (centerTextColor) buildChart += "color:'" + centerDataLabelColor + "',"
+                        if (centerTextSize) buildChart += "font: { size: " + centerDataLabelSize + "}"
+                        buildChart          +=   "},"
+                    }
+                    if (showDataLabelInCenter && centerDataLabelValueUnitsSuffix && centerDataLabelValueUnits != null) {
+                        buildChart += "{ text: '" + centerDataLabelValueUnits + "',"
+                        if (centerUnitsColor) buildChart += "color:'" + centerUnitsColor + "',"
+                        if (centerUnitsSize) buildChart += "font: { size: " + centerUnitsSize + "}"
                         buildChart += "}"
                     }
                     buildChart      += "]," // end labels
                     buildChart += "}," // end doughnutlabels
                     buildChart += "}"  // end plugins
                 }
-                buildChart += ",title: {display: ${(theChartTitle != "" && theChartTitle != null) ? 'true' : 'false'}, text: '${theChartTitle}', fontColor: '${labelColor}'}"
+                buildChart += ",title: {display: " + ((theChartTitle != "" && theChartTitle != null && (showTitleInCenter == null || showTitleInCenter == false) ) ? 'true' : 'false') + ", text: '${theChartTitle}', fontColor: '${labelColor}'}"
 
                 buildChart += "}}"
                 if(logEnable) log.debug "builderChart = ${buildChart}"
