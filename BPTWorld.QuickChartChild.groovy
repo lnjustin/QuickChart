@@ -468,7 +468,7 @@ def comparisonDataChartConfig() {
             input "staticCenterLabelColor", "text", title: "Static Center Data Label Color", width: 4
              input "centerDataLabelType", "enum", title: "Center Data Label Type", options: ["sum" : "Data Sum Total", "attribute" : "Device Attribute Value"], submitOnChange: true, width: 12
             if (centerDataLabelType == "attribute") {
-                deviceInput(false, false, false, true, false)
+                deviceInput(false, false, false, true, true)
                 input "centerDataLabelValueUnitsSuffix", "bool", title: "Add Value Units Suffix to Data Labels?", defaultValue:false, submitOnChange:true, width: 12
                 if (centerDataLabelValueUnitsSuffix) {
                     input "centerDataLabelValueUnits", "text", title: "Center Label Value Units Suffix", submitOnChange: false, width: 4
@@ -486,7 +486,7 @@ def comparisonDataChartConfig() {
             input "dynamicCenterLabelColor", "bool", title: "Configure Dynamic Center Data Label Color?", defaultValue:false, submitOnChange:true, width: 12
             if (dynamicCenterLabelColor) {
                 input "dynamicCenterLabelNumStates", "number", title: "How many states?", defaultValue:2, submitOnChange:true, width: 6
-                instructions += "<small> States can be defined as a single text value, a single numeric value, or a range of numeric values. Define a range of numeric values as MIN:MAX (example: 1:50). Ranges are inclusive of both MIN and MAX. </small>"
+                paragraph "<small> States can be defined as a single text value, a single numeric value, or a range of numeric values. Define a range of numeric values as MIN:MAX (example: 1:50). Ranges are inclusive of both MIN and MAX. </small>"
                 if (!dynamicCenterLabelNumStates) app.updateSetting("dynamicCenterLabelNumStates",[type:"number",value:2]) 
                 if (dynamicCenterLabelNumStates) {
                     for (i=1; i <= dynamicCenterLabelNumStates; i++) {
@@ -1022,11 +1022,10 @@ def eventChartingHandler(eventMap) {
                         if (centerDataLabelType == "attribute") centerValue = theDeviceSupp.currentValue(theAttSupp)
                         else if (centerDataLabelType == "sum") centerValue = sum
 
-                        log.debug "center = ${centerValue}"
-                        def centerDataLabelColor = ""
+                        def centerDataLabelColor = null
                         if (!dynamicCenterLabelColor && staticCenterLabelColor != null) centerDataLabelColor = staticCenterLabelColor
                         else if (dynamicCenterLabelColor) {
-                            for (i=1; i <= centerLabelNumStates; i++) {
+                            for (i=1; i <= dynamicCenterLabelNumStates; i++) {
                                 def state = settings["centerLabelState${i}"]
                                 def stateColor = settings["centerLabelState${i}Color"]
                                 if (centerDataLabelColor == null && state.contains(":")) {  // state is a range of values
@@ -1039,7 +1038,11 @@ def eventChartingHandler(eventMap) {
                                     }
                                     else log.warn "In eventChartingHandler - state range ignored because contains non-numeric values. Min value parsed is ${stateRange[0]} and max value parsed is ${stateRange[1]}"
                                 }
-                                else if (centerDataLabelColor == null && state != null && state.contains(centerValue)) centerDataLabelColor = stateColor
+                                else if (centerDataLabelColor == null && state != null && state.contains(centerValue as String)) {
+                                    centerDataLabelColor = stateColor
+                                    if (logEnable) log.debug "Label Value = ${centerValue} of class ${centerValue.class.name}. Found matchiung dynamic color state for state ${state} with color ${stateColor}"
+                                }
+                                else if (logEnable) log.debug "Label Value = ${centerValue} of class ${centerValue.class.name}. No matchiung dynamic color state for state ${state} of class ${state.class.name} with color ${stateColor}"
                             }                          
                         }
 
@@ -1064,10 +1067,10 @@ def eventChartingHandler(eventMap) {
                             if (showSecTimeUnitsCenter && secs > 0) formattedCenterValue += secs + 's'
                         }
                         else if (centerValue != null) formattedCenterValue = centerValue
-
+                        log.debug "centercolor = ${centerDataLabelColor}"
                         buildChart          += "{ text: '" + formattedCenterValue + "',"
-                        if (centerTextColor) buildChart += "color:'" + centerDataLabelColor + "',"
-                        if (centerTextSize) buildChart += "font: { size: " + centerDataLabelSize + "}"
+                        if (centerDataLabelColor) buildChart += "color:'" + centerDataLabelColor + "',"
+                        if (centerDataLabelSize) buildChart += "font: { size: " + centerDataLabelSize + "}"
                         buildChart          +=   "},"
                     }
                     if (showDataLabelInCenter && centerDataLabelValueUnitsSuffix && centerDataLabelValueUnits != null) {
