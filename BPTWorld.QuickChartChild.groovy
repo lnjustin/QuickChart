@@ -36,7 +36,7 @@
  * ------------------------------------------------------------------------------------------------------------------------------
  *
  *  Changes:
- *  0.5.0 - 02/22/22 - Reorganize User Interface to be more flexible for other chart types; Added support for radial gauge chart
+ *  0.5.0 - 02/22/22 - Reorganize User Interface to be more flexible for other chart types; Added support for radial gauge chart and progress bar; Added user-defined chart height; Define custom states with numeric ranges
  *  0.4.3 - 02/17/22 - Bug fixes; X-Axis origin; Persistent last data point optional; Update chart with device attribute value; Custom bar thickness
  *  0.4.2 - 12/01/22 - Fixes a minor bug
  *  0.4.1 - 11/02/22 - Added Bar Chart Width Configurabiity; Improved Legend Configurability - @JustinL
@@ -95,17 +95,22 @@ def pageConfig() {
         }
         
         section(getFormat("header-green", "${getImage("Blank")}"+" Chart Options")) {
-            input "gType", "enum", title: "Chart Style", options: ["bar","line", "horizontalBar","stateTiming","radar","pie","doughnut","polar","scatter","bubble","gauge","radialGauge","violin","sparkline","progressBar",""], submitOnChange:true, width:6, required: true
+            input "gType", "enum", title: "Chart Style", options: ["bar","line", "horizontalBar","stateTiming","radar","pie","doughnut","polar","scatter","bubble","gauge","radialGauge","violin","sparkline","progressBar",""], submitOnChange:true, width:4, required: true
             def chartConfigType = getChartConfigType(gType)
             def axisType = getChartAxisType(gType)
             
-            input "theChartTitle", "text", title: "Chart Title", submitOnChange:true, width:6            
+            input "theChartTitle", "text", title: "Chart Title", submitOnChange:true, width:4   
+            input "chartHeight", "number", title: "Chart Height (pixels)", description: "Leave Blank for Default Height", submitOnChange:false, width: 4         
             input "bkgrdColor", "text", title: "Background Color", defaultValue:"white", submitOnChange:false, width: 4
             input "labelColor", "text", title: "Label Color", defaultValue:"black", submitOnChange:false, width: 4
+            input "labelSize", "number", title: "Label size (pixels)", submitOnChange:false, width: 4
+
 
             if (hasGrid(gType)) input "gridColor", "text", title: "Grid Color", defaultValue:"black", submitOnChange:false, width: 4   
-            if (hasBar(gType)) input "globalBarThickness", "number", title: "Global Bar Thickness", submitOnChange:false, width: 4, required: false, defaultValue: 30           
-         
+            if (hasBar(gType)) {
+                input "barColor", "text", title: "Bar Color", defaultValue:"blue", submitOnChange:false, width: 4  
+                input "globalBarThickness", "number", title: "Global Bar Thickness", submitOnChange:false, width: 4, required: false, defaultValue: 30           
+            }
             if (chartConfigType == "pointData") pointDataChartConfig() 
             else if (chartConfigType == "comparisonData") comparisonDataChartConfig()
             else if (chartConfigType == "seriesData") seriesDataChartConfig()
@@ -121,6 +126,7 @@ def pageConfig() {
             ]
             if (dataSource || chartConfigType == "pointData") updateTimeOptions.add(["realTime":"Real Time"])
             else updateTimeOptions.add(["attribute":"With Device Attribute Value"])
+            paragraph "<hr><b>Chart Update Configuration</b>"
             input "updateTime", "enum", title: "When to Update", options: updateTimeOptions, defaultValue:"manual", submitOnChange:true, width: 4 
             if (updateTime == "attribute") {
                 input "updateDevice", "capability.*", title: "Select Update Device", multiple:false, submitOnChange:true, width: 12, required: true
@@ -190,10 +196,6 @@ def hasBar(gType) {
 
 }
 
-def comparisonDataChartConfig() {
-    
-}
-
 def seriesDataChartConfig() {
     input "onChartValueLabels", "bool", title: "Show Attribute Values as On-Chart Labels", defaultValue:false, submitOnChange:false, width: 4
     input "dFormat", "bool", title: "Use 24-hour timestamps", defaultValue:false, submitOnChange:true, width: 4
@@ -211,36 +213,7 @@ def seriesDataChartConfig() {
     input "dataSource", "bool", title: "Get data from file (off) OR from device event history (on)", defaultValue:false, submitOnChange:true
     if(dataSource) {        // Event History
         paragraph "<b>Using Device History</b><br>"
-        input "theDevice", "capability.*", title: "Select the Device(s)", multiple:true, submitOnChange:true, required: true
-        if(theDevice) {
-            labelOptions = []
-            allAttrs = []
-            attTypes = [:]
-            theDevice.each { dev ->
-                labelOptions << dev.displayName
-                attributes = dev.supportedAttributes
-                attributes.each { att ->
-                    allAttrs << att.name
-                    attTypes[att.name] = att.getDataType()
-                }
-            }
-            devAtt = allAttrs.unique().sort()
-            input "theAtt", "enum", title: "Select the Attribute(s)<br><small>Attributes must be either all numbers or all non-numbers.</small>", options: devAtt, multiple:true, submitOnChange:true, required: true
-                    
-            def anyNonNumber = false
-            def anyNumber = false
-            theAtt.each { att ->                        
-                theType = attTypes[att]
-                if (theType.toLowerCase() == "number") anyNumber = true
-                else anyNonNumber = true
-            }                    
-           if(logEnable) log.debug "Detected attribute type: ${attType}"
-           if (anyNumber && anyNonNumber) paragraph "*Warning: Selected attributes are not all numbers or all non-numbers as required*"
-           else if (anyNumber && !anyNonNumber) state.isNumericalData = true
-           else if (!anyNumber && anyNonNumber) state.isNumericalData = false
-
-           dataType = "rawdata"
-       }
+        deviceInput(true, true) 
    } else {
        paragraph "<b>Using Data File</b><br><small>Data files are made using the 'Quick Chart Data Collector'</small>"
        input "hubSecurity", "bool", title: "Using Hub Security", defaultValue:false, submitOnChange:true
@@ -304,25 +277,52 @@ def seriesDataChartConfig() {
     
     if(dataType == "rawdata" && (gType == "stateTiming" || state.isNumericalData == false)) {
                 
-         input "extrapolateDataToCurrentTime", "bool", title: "Last Datapoint persists until Current Time?", submitOnChange:true, width: 12, defaultValue: true
-                               
-          if (!customizeStates) paragraph "<small><b>Using Default State Colors</b><br>Green: active, open, locked, present, on, open, true, dry<br>Red: inactive, closed, unlocked, not present, off, closed, false, wet</small>"
-          input "customizeStates", "bool", title: "Customize State Colors and/or Bar Thickness?", defaultValue:false, submitOnChange:true, width: 12
-          if (customizeStates) {    
-               input "numStates", "number", title: "How many states?", defaultValue:2, submitOnChange:true, width: 12
-               paragraph "<small>State Color and Bar Thickness is set to the color and bar thickness specified for whatever state matches first</small>"
-               if (!numStates) app.updateSetting("numStates",[type:"number",value:2]) 
-               if (numStates) {
-                   for (i=1; i <= numStates; i++) {
-                        input "state${i}", "text", title: "State ${i}", submitOnChange:false, width: 4
-                         input "state${i}Color", "text", title: "Color", submitOnChange:false, width: 4
-                         input "state${i}BarThickness", "number", title: "Bar Thickness", defaultValue: 30, submitOnChange:false, width: 4
-                  }
-              }                   
-         }
+        input "extrapolateDataToCurrentTime", "bool", title: "Last Datapoint persists until Current Time?", submitOnChange:true, width: 12, defaultValue: true                  
+        if (!customizeStates) paragraph "<small><b>Using Default State Colors</b><br>Green: active, open, locked, present, on, open, true, dry<br>Red: inactive, closed, unlocked, not present, off, closed, false, wet</small>"
+        customStateInput()
     }
     if (gType != "stateTiming") input "reverseMap", "bool", title: "Reverse Data Ordering", defaultValue:false, submitOnChange:true
      // force reverseMap for stateTiming
+
+}
+
+def customStateInput() {
+    def customizeBar = hasBar(gType) && gType != "progressBar"
+    def inputWidth = customizeBar ? 4 : 6
+    input "customizeStates", "bool", title: "Customize State Colors ${customizeBar ? 'and/or Bar Thickness?' : ''}", defaultValue:false, submitOnChange:true, width: 12
+    if (customizeStates) {    
+        input "customStateCriteria", "enum", title: "Customize States By...", options: ["Value","Device","Attribute"], submitOnChange:true, width:6
+        def instructions = "<small>State Color" + (customizeBar ? ' and Bar Thickness' : '') + " is set to the color" + (customizeBar ? ' and bar thickness' : '') + " specified for whatever state matches first, overriding any global settings specified above. </small>"
+        if (customStateCriteria == "Value") {
+            input "numStates", "number", title: "How many states?", defaultValue:2, submitOnChange:true, width: 6
+            instructions += "<small> States can be defined as a single text value, a single numeric value, or a range of numeric values. Define a range of numeric values as MIN:MAX (example: 1:50). Ranges are inclusive of both MIN and MAX. </small>"
+            paragraph instructions
+            if (!numStates) app.updateSetting("numStates",[type:"number",value:2]) 
+            if (numStates) {
+                for (i=1; i <= numStates; i++) {
+                    input "state${i}", "text", title: "State ${i}", submitOnChange:false, width: inputWidth
+                    input "state${i}Color", "text", title: "Color", submitOnChange:false, width: inputWidth
+                    if (customizeBar) input "state${i}BarThickness", "number", title: "Bar Thickness", defaultValue: 30, submitOnChange:false, width: 4
+                }
+            }      
+        }
+        else if (customStateCriteria == "Device") { 
+           paragraph instructions
+            for (i=1; i <= theDevice.size(); i++) {
+                def sanitizedDevice = theDevice[i-1].replaceAll("\\s","").toLowerCase()
+                input "state${sanitizedDevice}Color", "text", title: theDevice[i-1] + "Color", submitOnChange:false, width: inputWidth
+                if (customizeBar) input "state${sanitizedDevice}BarThickness", "number", title: theDevice[i-1] + "Bar Thickness", defaultValue: 30, submitOnChange:false, width: inputWidth
+            }
+        }
+        else if (customStateCriteria == "Attribute") { 
+           paragraph instructions
+            for (i=1; i <= theAtt.size(); i++) {
+                def sanitizedAtt = theAtt[i-1].replaceAll("\\s","").toLowerCase()
+                input "state${sanitizedAtt}Color", "text", title: theAtt[i-1] + " Color", submitOnChange:false, width: inputWidth
+                if (customizeBar) input "state${sanitizedAtt}BarThickness", "number", title: theAtt[i-1] + " Bar Thickness", defaultValue: 30, submitOnChange:false, width: inputWidth
+            }
+        }  
+    }
 
 }
 
@@ -381,7 +381,7 @@ def XYAxisConfig() {
                 if(dynamicLineDevice) {
                     def attrs = []
                     dynamicLineDevice.supportedAttributes.each { att ->                             
-                        if(att.getDataType().toLowerCase() == "number") attrs << att.name
+                        if(att && att.getDataType().toLowerCase() == "number") attrs << att.name
                     }
                     input "dynamicLineAttribute", "enum", title: "Select the Dynamic Line Attribute", options: attrs.unique().sort(), submitOnChange:false, required: true, width: 6
                 }
@@ -413,47 +413,197 @@ def XYAxisConfig() {
 def pointDataChartConfig() {
     if (gType == "radialGauge") {
 
-        input "roundedCorners", "bool", title:"Rounded Corners?", width: 4, required: true, defaultValue: false
         input "centerFillColor", "text", title: "Center Background Color", defaultValue:"white", submitOnChange: false, width: 6
-        input "centerImage", "text", title: "Center Background Image", defaultValue:"", submitOnChange: false, width: 6
+        input "centerImage", "text", title: "Center Background Image", description: "Overrides any specified center color", defaultValue:"", submitOnChange: false, width: 6
         input "centerSubText", "text", title: "Center Subtext", defaultValue:"", submitOnChange: false, width: 6
         input "centerPercentage", "number", title: "Center Size (Percentage)", width: 6
         input "trackColor", "text", title: "Track Background Color", defaultValue:"gray", submitOnChange:false, width: 6
         input "trackFillColor", "text", title: "Track Fill Color", defaultValue:"green", submitOnChange: false, width: 6
         input "arcBorderWidth", "number", title: "Outline Width", width: 6, defaultValue: 0
         input "arcBorderColor", "text", title: "Outline Color", width: 6, defaultValue: ""
-        input "theDevice", "capability.*", title: "Select the Device", multiple:false, submitOnChange:true, required: true, width: 12
-        if(theDevice) {
-            labelOptions = []
-            allAttrs = []
-            attTypes = [:]
-            labelOptions << theDevice.displayName
-            attributes = theDevice.supportedAttributes
-            attributes.each { att ->
-                allAttrs << att.name
-                attTypes[att.name] = att.getDataType()
-            }
-            devAtt = allAttrs.unique().sort()
-            input "theAtt", "enum", title: "Select the Attribute<br><small>Attributes must be a number.</small>", options: devAtt, multiple:false, submitOnChange:true, required: true, width: 12
-                    
-            def anyNonNumber = false
-            def anyNumber = false
-            if (theAtt)  {                  
-                theType = attTypes[theAtt]
-                if (theType.toLowerCase() == "number") anyNumber = true
-                else anyNonNumber = true
-            }                    
-           if (anyNumber && !anyNonNumber) state.isNumericalData = true
-           else if (!anyNumber && anyNonNumber) state.isNumericalData = false
-        }
-        dataType = "rawdata"       
-        input "valueUnits", "text", title: "Value Units", defaultValue:"", submitOnChange: false, width: 4
+        input "roundedCorners", "bool", title:"Rounded Corners?", width: 6, required: true, defaultValue: false
+        deviceInput(false, false) 
+        input "valueUnits", "text", title: "Add Value Units Suffix", defaultValue:"", submitOnChange: false, width: 4
         input "domainMin", "number", title: "Minimum Possible Value", submitOnChange:false, width: 4, required: true
         input "domainMax", "number", title: "Maximum Possible Value", submitOnChange:false, width: 4, required: true
         
     }
+    else if (gType == "progressBar") {
+        input "progressTrackColor", "text", title: "Progress Track Color", defaultValue:"gray", submitOnChange: false, width: 4
+        deviceInput(false, false) 
+        input "valueUnits", "text", title: "Add Value Units Suffix", defaultValue:"%", submitOnChange: false, width: 6
+        input "maxProgress", "number", title: "Maximum Progress Value", width: 6, defaultValue: 100
+    }
+    customStateInput()
 }
+
+def comparisonDataChartConfig() {
+    if (gType == "doughnut") {
+        input "centerPercentage", "number", title: "Center Size (Percentage)", width: 4
+        input "circumference", "decimal", title: "Circumference (* pi)", width: 4
+        input "rotation", "decimal", title: "Rotation (* pi)", width: 4
+
+        deviceInput(true, true, true, false)     
+
+        paragraph "<hr><b>Data Label Configuration</b>" 
+        input "hideDataLabel", "bool", title: "Hide Data Label?", defaultValue:false, submitOnChange:true, width: 12
+        if (!hideDataLabel) {
+            input "valueUnitsSuffix", "bool", title: "Add Value Units Suffix to Data Labels?", defaultValue:false, submitOnChange:true, width: 6
+            if (valueUnitsSuffix) input "valueUnits", "text", title: "Value Units Suffix", submitOnChange: false, width: 6
+            input "durationLabel", "bool", title: "Display as Duration?", defaultValue:false, submitOnChange:true, width: 12
+            if (durationLabel) {
+                input "attributeValueTimeUnits", "enum", title: "Select Attribute Value Time Units", options: ["minutes", "seconds"], submitOnChange: false, width: 12
+                input "showHourTimeUnits", "bool", title: "Show Hours if > 0?", submitOnChange: false, width: 4
+                input "showMinTimeUnits", "bool", title: "Show Minutes if > 0?", submitOnChange: false, width: 4
+                input "showSecTimeUnits", "bool", title: "Show Seconds if > 0?", submitOnChange: false, width: 4
+            }
+            input "percentageLabel", "bool", title: "Display as Percentage?", defaultValue:false, submitOnChange:true, width: 12
+            input "addPercentageSubLabel", "bool", title: "Add Percentage Sublabel?", defaultValue:false, submitOnChange:true, width: 12
+            if (addPercentageSubLabel) input "percentPosition", "enum", title: "Percent Position", options: ["end" : "Outside Circle", "bottom" : "Under Value"], submitOnChange: false, width: 4
+            input "dataLabelPosition", "enum", title: "Data Label Position", options: ["Inside", "Outside"], defaultValue:"Inside", submitOnChange:false, width: 6
+            input "dataLabelPositionOffset", "text", title: "Position Offset (number)", defaultValue:0, width: 6
+            customStateInput()
+        }
+
+        paragraph "<hr><b>Center Label Configuration</b>" 
+        paragraph "<small>The Center of the Chart can include up to 3 rows of labels, each of which can include static text, dynamic data associated with the same device, or dynamic data associated with a different device.</small>"
+        labelInput("Top")
+        labelInput("Middle")
+        labelInput("Bottom")
+        /*
+        input "showTitleInCenter", "bool", title:"Show title in center?", width: 4, required: true, defaultValue: false, submitOnChange: true
+        if (showTitleInCenter) {
+            input "centerTitleSize", "number", title: "Center Title Size", width: 4
+            input "centerTitleColor", "text", title: "Center Title Color", width: 4
+        }
+        input "showDataLabelInCenter", "bool", title:"Show data label in center?", width: 4, required: true, defaultValue: false, submitOnChange: true
+        if (showDataLabelInCenter) {
+            input "centerDataLabelSize", "number", title: "Center Data Label Size", width: 4
+            input "staticCenterLabelColor", "text", title: "Static Center Data Label Color", width: 4
+             input "centerDataLabelType", "enum", title: "Center Data Label Type", options: ["sum" : "Data Sum Total", "attribute" : "Device Attribute Value"], submitOnChange: true, width: 12
+            if (centerDataLabelType == "attribute") {
+                deviceInput(false, false, false, true, "Center")
+                input "centerDataLabelValueUnitsSuffix", "bool", title: "Add Value Units Suffix to Data Labels?", defaultValue:false, submitOnChange:true, width: 12
+                if (centerDataLabelValueUnitsSuffix) {
+                    input "centerDataLabelValueUnits", "text", title: "Center Label Value Units Suffix", submitOnChange: false, width: 4
+                    input "centerUnitsSize", "number", title: "Center Units Size", width: 4
+                    input "centerUnitsColor", "text", title: "Center Units Color", width: 4
+                }
+                input "centerDurationLabel", "bool", title: "Display Center Label as Duration Data Label?", defaultValue:false, submitOnChange:true, width: 12
+                if (centerDurationLabel) {
+                    input "centerValueTimeUnits", "enum", title: "Select Center Value Time Units", options: ["minutes", "seconds"], submitOnChange: false, width: 12
+                    input "showHourTimeUnitsCenter", "bool", title: "Show Hours if > 0?", submitOnChange: false, width: 4
+                    input "showMinTimeUnitsCenter", "bool", title: "Show Minutes if > 0?", submitOnChange: false, width: 4
+                    input "showSecTimeUnitsCenter", "bool", title: "Show Seconds if > 0?", submitOnChange: false, width: 4
+                }
+            }
+            input "dynamicCenterLabelColor", "bool", title: "Configure Dynamic Center Data Label Color?", defaultValue:false, submitOnChange:true, width: 12
+            if (dynamicCenterLabelColor) {
+                input "dynamicCenterLabelNumStates", "number", title: "How many states?", defaultValue:2, submitOnChange:true, width: 6
+                paragraph "<small> States can be defined as a single text value, a single numeric value, or a range of numeric values. Define a range of numeric values as MIN:MAX (example: 1:50). Ranges are inclusive of both MIN and MAX. </small>"
+                if (!dynamicCenterLabelNumStates) app.updateSetting("dynamicCenterLabelNumStates",[type:"number",value:2]) 
+                if (dynamicCenterLabelNumStates) {
+                    for (i=1; i <= dynamicCenterLabelNumStates; i++) {
+                        input "centerLabelState${i}", "text", title: "State ${i}", submitOnChange:false, width: 6
+                        input "centerLabelState${i}Color", "text", title: "Color", submitOnChange:false, width: 6
+                    }
+                } 
+            }
+        }
+*/
+    }
     
+}
+
+def labelInput(labelID) {
+    input labelID + "LabelType", "enum", title: labelID + " Label Type", options: ["none" : "None", "title" : "Chart Title", "sum" : "Data Sum", "percentage" : "Data Percentage of Total", "attribute" : "Device Attribute Value"], defaultValue: "None", submitOnChange: true, width: 12
+    if (settings[labelID + "LabelType"] && settings[labelID + "LabelType"] != "none") {
+        input labelID + "LabelSize", "number", title: labelID + " Label Text Size", width: 4
+        input labelID + "StaticLabelColor", "text", title: (labelID + " Static Label Color"), width: 4
+        if (settings[labelID + "LabelType"] != "title") {
+            if (settings[labelID + "LabelType"] == "attribute") deviceInput(false, false, false, true, labelID)
+            else if (settings[labelID + "LabelType"] == "percentage") input labelID + "PercentageDataAttributes", "enum", title: "Combined Percentage of Which Attribute(s)?", options: settings["theAtt"], multiple:true, submitOnChange:false, required: true
+            else if (settings[labelID + "LabelType"] == "sum") input labelID + "SumDataAttributes", "enum", title: "Sum of Which Attribute(s)?", options: settings["theAtt"], multiple:true, submitOnChange:false, required: true
+            if (settings[labelID + "LabelType"] != "percentage") {
+                input labelID + "LabelPrefix", "text", title: labelID + " Label Prefix", submitOnChange: false, width: 4
+                input labelID + "LabelSuffix", "text", title: labelID + " Label Suffix", submitOnChange: false, width: 4
+                input labelID + "DurationLabel", "bool", title: "Display " + labelID + " Label as Duration?", defaultValue:false, submitOnChange:true, width: 12
+                if (settings[labelID + "DurationLabel"]) {
+                    input labelID + "ValueTimeUnits", "enum", title: "Select " + labelID + " Value Time Units", options: ["minutes", "seconds"], submitOnChange: false, width: 12
+                    input "showHourTimeUnits" + labelID, "bool", title: "Show Hours if > 0?", submitOnChange: false, width: 4
+                    input "showMinTimeUnits" + labelID, "bool", title: "Show Minutes if > 0?", submitOnChange: false, width: 4
+                    input "showSecTimeUnits" + labelID, "bool", title: "Show Seconds if > 0?", submitOnChange: false, width: 4
+                }
+            }
+            input labelID + "DynamicLabelColor", "bool", title: "Configure Dynamic Label Color for " + labelID + "?", defaultValue:false, submitOnChange:true, width: 12
+            if (settings[labelID + "DynamicLabelColor"]) {
+                input labelID + "DynamicLabelColorType", "enum", title: "Rules For " + labelID + " Label Dynamic Color", options: ["Independent", "Follows Top Label", "Follows Middle Label", "Follows Bottom Label"], defaultValue: "Independent", submitOnChange: true, width: 6
+                if (settings[labelID + "DynamicLabelColorType"] == "Independent") {
+                    input labelID + "DynamicLabelNumStates", "number", title: "How many states?", defaultValue:2, submitOnChange:true, width: 6
+                    paragraph "<small> States can be defined as a single text value, a single numeric value, or a range of numeric values. Define a range of numeric values as MIN:MAX (example: 1:50). Ranges are inclusive of both MIN and MAX. </small>"
+                    if (!settings[labelID + "DynamicLabelNumStates"]) app.updateSetting(labelID + "DynamicLabelNumStates",[type:"number",value:2]) 
+                    if (settings[labelID + "DynamicLabelNumStates"]) {
+                        for (i=1; i <= settings[labelID + "DynamicLabelNumStates"]; i++) {
+                            input labelID + "LabelState${i}", "text", title: "State ${i}", submitOnChange:false, width: 6
+                            input labelID + "LabelState${i}Color", "text", title: "Color", submitOnChange:false, width: 6
+                        }
+                    } 
+                }
+            }
+        }
+    }
+}
+
+def deviceInput(multipleDevices = false, multipleAttributes = false, onlyOneMultiplicityDimension = false, nonNumberAttributeAllowed = true, inputIndex = "") {
+    if (multipleDevices && multipleAttributes && onlyOneMultiplicityDimension) paragraph "Select multiple devices with the same attribute (to chart values of the attribute across the devices) or a single device with multiple attributes (to chart the values of the device's attributes)."
+
+    def deviceInputTitle = multipleDevices ? "Select the Device(s)" : "Select the Device"
+    def deviceInputName = "theDevice" + inputIndex
+    def attInputName = "theAtt" + inputIndex
+    input deviceInputName, "capability.*", title: deviceInputTitle, multiple:multipleDevices, submitOnChange:true, required: true, width: 12
+    if (settings[deviceInputName]) {
+        def labelOptions = []
+        def allAttrs = []
+        def attTypes = [:]
+        settings[deviceInputName].each { dev ->
+            labelOptions << dev.displayName
+            def attributes = dev.supportedAttributes
+            attributes.each { att ->
+                def aType = att.getDataType().toLowerCase()
+                if(logEnable) log.debug "Detected attribute type: ${aType}"
+                if (nonNumberAttributeAllowed == false && aType == "number") {
+                    allAttrs << att.name
+                    attTypes[att.name] = att.getDataType()
+                }
+                else if (nonNumberAttributeAllowed == true) {
+                    allAttrs << att.name
+                    attTypes[att.name] = att.getDataType()
+                }
+            }
+        }
+        if(logEnable) log.debug "Detected attribute types: ${allAttrs}"
+        def devAtt = allAttrs.unique().sort()
+
+        def attributeReqText = nonNumberAttributeAllowed ? "Attribute(s) must be either all numbers or all non-numbers." : "Attribute(s) must be numbers."
+        def attributeTitle = multipleAttributes ? "Select the Attribute(s)<br><small>" + attributeReqText + "</small>" : "Select the Attribute"
+        input attInputName, "enum", title: attributeTitle, options: devAtt, multiple:multipleAttributes, submitOnChange:true, required: true
+           
+        def anyNonNumber = false
+        def anyNumber = false
+        settings[attInputName].each { att ->                        
+            def theType = attTypes[att]
+            if (theType && theType.toLowerCase() == "number") anyNumber = true
+            else anyNonNumber = true
+        }                    
+        if(logEnable) log.debug "Detected attribute type: ${attType}"
+        if (anyNumber && anyNonNumber) paragraph "*Warning: Selected attributes are not all numbers or all non-numbers as required*"
+        if (nonNumberAttributeAllowed == false && anyNonNumber == true) paragraph "*Warning: Not all selected attributes are non-numbers as required*"
+        else if (anyNumber && !anyNonNumber) state.isNumericalData = true
+        else if (!anyNumber && anyNonNumber) state.isNumericalData = false
+
+        if (inputIndex == "") dataType = "rawdata"
+    } 
+}
 
 def installed() {
     log.debug "Installed with settings: ${settings}"
@@ -522,11 +672,24 @@ def getEvents() {
         if(logEnable) log.debug "----------------------------------------------- Start Quick Chart -----------------------------------------------"
         if (getChartConfigType(gType) == "pointData") {
             def eventMap = [:]
-            def theKey = "${theDevice};${theAtt}"
+            def theKey = "${theDevice};${theAtt.capitalize()}"
             def dataPoint = theDevice.currentValue(theAtt)
             def dataMap =[]
             dataMap << [date:new Date(),value:dataPoint]
             eventMap.put(theKey, dataMap)
+            eventChartingHandler(eventMap)
+        }
+        else if (getChartConfigType(gType) == "comparisonData") {
+            def eventMap = [:]
+            theDevice.each { theD ->
+                theAtt.each { att ->
+                    theKey = "${theD};${att.capitalize()}"
+                    def dataPoint = theD.currentValue(att)
+                    def dataMap =[]
+                    dataMap << [date:new Date(),value:dataPoint]
+                    eventMap.put(theKey, dataMap)
+                }
+            }
             eventChartingHandler(eventMap)
         }
         else if(dataSource) {
@@ -697,59 +860,315 @@ def eventChartingHandler(eventMap) {
     } else {
         if(logEnable) log.debug "In eventChartingHandler (${state.version}) - Device Events"
         
-        if (gType == "radialGauge") {
-  if(logEnable) log.debug "In eventChartingHandler -- Building Radial Gauge Chart with eventMap ${eventMap} --"
-            theDataset = []           
-            def chartType = gType        
-            buildChart = "{type:'${chartType}'"
-           
+        
+        if(logEnable) log.debug "In eventChartingHandler -- Building ${gType} Chart with eventMap ${eventMap} --"
+        theDataset = []           
+        def chartType = gType     
+        def height = null   
+        buildChart = "{type:'${chartType}'"
+
+        if (getChartConfigType(gType) == "pointData") {
+            
             if(eventMap) {
                 eventMap.each { it ->  
-                    (theDev,theAtt) = it.key.split(";")
+                    (theDev,theAttribute) = it.key.split(";")
                     theD = it.value
-                    
+                
                     theDatasets = []
-                    if(logEnable) log.debug "In eventChartingHandler - building dataset for ${theAtt} from data: ${theD}"
-                    
-                    y=0
+                    if(logEnable) log.debug "In eventChartingHandler - building dataset for ${theAttribute} from data: ${theD}"
+                
                     theD.each { tdata ->
                         def theDataset = "{"
                         theDataset += "data:[${tdata.value}],"
-                        theDataset += "backgroundColor:'${trackFillColor}',"
+                        def color = null
+                        if (customizeStates) {    
+                            for (i=1; i <= numStates; i++) {
+                                def state = settings["state${i}"]
+                                def stateColor = settings["state${i}Color"]
+                                if (color == null && state.contains(":")) {  // state is a range of values
+                                    def stateRangeString = state.split(":")
+                                    def stateRange = []
+                                    stateRange[0] = new BigDecimal(stateRangeString[0]).setScale(0, java.math.RoundingMode.HALF_UP)      
+                                    stateRange[1] = new BigDecimal(stateRangeString[1]).setScale(1, java.math.RoundingMode.HALF_UP)
+                                    def dataValue = new BigDecimal(tdata.value).setScale(2, java.math.RoundingMode.HALF_UP)
+                                    if (stateRange[0] != null && stateRange[1] != null) {
+                                        if (dataValue >= stateRange[0] && dataValue <= stateRange[1]) color = stateColor
+                                    }
+                                    else log.warn "In eventChartingHandler - state range ignored because contains non-numeric values. Min value parsed is ${stateRange[0]} and max value parsed is ${stateRange[1]}"
+                                }
+                                else if (color == null && state != null && state.contains(tdata.value)) color = stateColor
+                            }
+                        } 
+                        if (gType == "radialGauge" && color == null && trackFillColor != null) color = trackFillColor
+                        else if (gType == "progressBar" && color == null && barColor != null) color = barColor
+                        theDataset += "backgroundColor:'" + color + "',"
+                        if (hasBar(gType)) {
+                            theDataset += "barThickness:'" + globalBarThickness + "',"
+                            theDataset += "borderColor:'transparent',"
+                        }
                         theDataset += "}"
                         theDatasets << theDataset
                     }
                 }
 
+                if (gType == "progressBar") {
+                    def theDataset = "{"
+                    theDataset += "data:[" + (maxProgress ? maxProgress : 100) + "],"
+                    if (progressTrackColor != null) theDataset += "backgroundColor:'" + progressTrackColor + "',"
+                    theDataset += "barThickness:'" + globalBarThickness + "',"
+                    theDataset += "borderColor:'" + progressTrackColor + "',"
+                    theDataset += "}"
+                    theDatasets << theDataset
+                    height = globalBarThickness
+                }
+
                 if(logEnable) log.debug "In eventChartingHandler - the datasets: ${theDatasets}"
                 buildChart += ",data:{datasets:${theDatasets}}"        
-                buildChart += ",options: {"     
-                buildChart += "domain: [" + domainMin + "," + domainMax + "]"
-                buildChart += ",trackColor:'" + trackColor + "'"
-                buildChart += ",centerPercentage:" + centerPercentage
-                buildChart += ",roundedCorners:" + roundedCorners
-                buildChart += ",elements: { arc: { borderColor: '" + (arcBorderColor ? arcBorderColor : "white") + "', borderWidth: " + (arcBorderWidth ? arcBorderWidth : 0 ) + " } }"
-                buildChart += ",centerArea:{"
-                buildChart += "text: (val) => val + '" + (valueUnits != null ? valueUnits : "") + "'"
-                buildChart += ",fontColor:'" + labelColor + "'"
-                if (centerImage != null && centerImage != "") buildChart += ",backgroundImage:'" + centerImage + "'"
-                if (centerFillColor != null && centerFillColor != "") buildChart += ",backgroundColor:'" + centerFillColor + "'"
-                if (centerSubText != null && centerSubText != "") buildChart += ",subText:'" + centerSubText + "'"
-                buildChart += "}"
-                buildChart += ",title: {display: ${(theChartTitle != "" && theChartTitle != null) ? 'true' : 'false'}, text: '${theChartTitle}', fontColor: '${labelColor}'}"
-  
-                buildChart += "}}"
-                
-                
-          
-                chartMap = [format: "png", backgroundColor: bkgrdColor, height: height, chart: buildChart]                
-                def chartJson = new JsonOutput().toJson(chartMap)                
-                def shortURLResponse = sendJsonGetShortURL(chartJson)
-                if (shortURLResponse != null && shortURLResponse.url != null) {
-                    if(logEnable) log.debug "Got short Quick Chart URL: ${shortURLResponse.url}"
-                    buildChart = "<img width='100%' src=\"" + shortURLResponse.url + "\" onclick=\"window.open(this.src)\">"
+
+                buildChart += ",options: {"   
+                buildChart += "fontColor:'" + labelColor + "'"
+                if (gType == "radialGauge") {   
+                    if (centerImage != null && centerImage != "") buildChart += ",plugins:{backgroundImageUrl:'" + centerImage + "'}"
+                    buildChart += ",domain: [" + domainMin + "," + domainMax + "]"
+                    buildChart += ",trackColor:'" + trackColor + "'"
+                    buildChart += ",centerPercentage:" + centerPercentage
+                    buildChart += ",roundedCorners:" + roundedCorners
+                    buildChart += ",elements: { arc: { borderColor: '" + (arcBorderColor ? arcBorderColor : "white") + "', borderWidth: " + (arcBorderWidth ? arcBorderWidth : 0 ) + " } }"
+                    buildChart += ",centerArea:{"
+                    buildChart += "text: (val) => val + '" + (valueUnits != null ? valueUnits : "") + "'"
+                    if (centerFillColor != null && centerFillColor != "" && (centerImage == null || centerImage == "")) buildChart += ",backgroundColor:'" + centerFillColor + "'"
+                    if (centerSubText != null && centerSubText != "") buildChart += ",subText:'" + centerSubText + "'"
+                    buildChart += ",padding:0"
+                    if (labelColor) buildChart += ",fontColor:'" + labelColor + "'"
+                    if (labelSize) buildChart += ",fontSize:" + labelSize
+                    buildChart += "}"
                 }
-            }                 
+                else if (gType == "progressBar") {
+                    buildChart += ",plugins:{"
+                    buildChart      += "roundedBars: { cornerRadius: 4, allCorners: true, }"
+                    buildChart      += ",datalabels: { "
+                    if (labelColor) buildChart += "color:'" + labelColor + "',"
+                    if (labelSize)  buildChart += "size:" + labelSize + "',"
+                    buildChart      += "formatter: (val) => { return val.toLocaleString() + ' " + (valueUnits ? valueUnits : '%') + "';},}"
+                    buildChart += "}"
+                }
+                buildChart += ",title: {display: ${(theChartTitle != "" && theChartTitle != null) ? 'true' : 'false'}, text: '${theChartTitle}', fontColor: '${labelColor}'}"
+
+                buildChart += "}}"
+            }                
+        }
+        else if (getChartConfigType(gType) == "comparisonData") {           
+            if(eventMap) {
+                theDatasets = []
+                theData = []
+                theBackgroundColor = []
+                def sum = 0
+                eventMap.each { it ->  
+                    (theDev,theAttribute) = it.key.split(";")
+                    theD = it.value
+                    theD.each { tdata ->
+                        theData << tdata.value
+                        def dataValue = new BigDecimal(tdata.value).setScale(2, java.math.RoundingMode.HALF_UP)
+                        sum += dataValue as Double
+                        def color = null
+                        if (customizeStates) {    
+                            if (customStateCriteria == "Value") {
+                                for (i=1; i <= numStates; i++) {
+                                    def state = settings["state${i}"]
+                                    def stateColor = settings["state${i}Color"]
+                                    if (color == null && state.contains(":")) {  // state is a range of values
+                                        def stateRangeString = state.split(":")
+                                        def stateRange = []
+                                        stateRange[0] = new BigDecimal(stateRangeString[0]).setScale(0, java.math.RoundingMode.HALF_UP)      
+                                        stateRange[1] = new BigDecimal(stateRangeString[1]).setScale(1, java.math.RoundingMode.HALF_UP)
+                                        if (stateRange[0] != null && stateRange[1] != null) {
+                                            if (dataValue >= stateRange[0] && dataValue <= stateRange[1]) color = stateColor
+                                        }
+                                        else log.warn "In eventChartingHandler - state range ignored because contains non-numeric values. Min value parsed is ${stateRange[0]} and max value parsed is ${stateRange[1]}"
+                                    }
+                                    else if (color == null && state != null && state.contains(tdata.value)) color = stateColor
+                                }
+                            } 
+                            else if (customStateCriteria == "Device") { 
+                                def sanitizedDevice = theDevice.replaceAll("\\s","").toLowerCase()
+                                def stateColor = settings["state${sanitizedDevice}Color"]
+                                if (color == null && stateColor != null) color = stateColor
+                            }
+                            else if (customStateCriteria == "Attribute") { 
+                                def sanitizedAtt = theAttribute.replaceAll("\\s","").toLowerCase()
+                                def stateColor = settings["state${sanitizedAtt}Color"]
+                                if (color == null && stateColor != null) color = stateColor
+                            }  
+                            if (color != null) theBackgroundColor << "'" + color + "'"
+                        }
+                    }
+                }
+                def theDataset = "{"
+                theDataset += "data:" + theData + ","
+                if (theBackgroundColor != null && theBackgroundColor.size() > 0) theDataset += "backgroundColor:" + theBackgroundColor + ","
+                theDataset += "datalabels: { labels: { "
+
+                theDataset += "name: { "
+                def position = "middle"
+                if (dataLabelPosition && dataLabelPosition == "Outside") position = "end"
+                theDataset += "align: '" + position + "', " // start of name datalabel
+                if (dataLabelPositionOffset) theDataset += "offset: " + dataLabelPositionOffset + ", " // start of name datalabel
+                if (labelColor) theDataset += "color:'" + labelColor + "',"
+                if (labelSize)  theDataset += "font: { size:" + labelSize + "},"
+                if (durationLabel) {
+                    theDataset += "formatter: function(value,context) {"
+                    if (attributeValueTimeUnits == "seconds") {
+                        theDataset += "var hours = Math.floor(value / 3600);"
+                        theDataset += "var mins = Math.floor((value % 3600) / 60);"
+                        theDataset += "var secs = Math.floor(value % 60);" 
+                    }
+                    else if (attributeValueTimeUnits == "minutes") {
+                        theDataset += "var hours = Math.floor(value / 60);"
+                        theDataset += "var mins = Math.floor((value % 60) / 60);"
+                        theDataset += "var secs = 0;" 
+                    }
+                    theDataset += "var label = '';"
+                    if (showHourTimeUnits) theDataset += "if (hours > 0) { label += hours + 'h';}"
+                    if (showMinTimeUnits) theDataset += "if (mins > 0) { label += mins + 'm';}"
+                    if (showSecTimeUnits) theDataset += "if (secs > 0) { label += secs + 's';}"
+                    theDataset += "return label;}"
+                }
+                else if (percentageLabel) {
+                    theDataset += "formatter: function(value,context) {"
+                    theDataset += "var sum = 0;"
+                    theDataset += "for (var i=0; i < context.chart.data.datasets[0].data.length; i++) {"
+                    theDataset +=     "sum += context.chart.data.datasets[0].data[i];"
+                    theDataset += "}"
+                    theDataset += "var percent = Math.floor((value / sum)*100);"
+                    theDataset += "return percent + '%';}"
+                }
+                else {
+                    theDataset += "formatter: function(value,context) { var label = value.toLocaleString()" + ((valueUnitsSuffix && valueUnits != null) ? (" + ' " + valueUnits + '%') : "") + ";"
+                    theDataset += "return label;}"
+                }
+                theDataset += "}" // end of name datalabel
+
+                if (addPercentageSubLabel) {
+                    theDataset += ",value: {"
+                    theDataset += "align:'" + (percentPosition ? percentPosition : 'bottom') + "',"
+                    if (percentPosition == "end") theDataset += "anchor: 'end',"
+                    if (labelColor) theDataset += "color:'" + labelColor + "',"
+                    if (labelSize)  theDataset += "font: { size:" + labelSize + "},"
+                    theDataset += "formatter: function(value,context) {"
+                    theDataset += "var sum = 0;"
+                    theDataset += "for (var i=0; i < context.chart.data.datasets[0].data.length; i++) {"
+                    theDataset +=     "sum += context.chart.data.datasets[0].data[i];"
+                    theDataset += "}"
+                    theDataset += "var percent = Math.floor((value / sum)*100);"
+                    theDataset += "return '(' + percent + '%)';}"
+                    theDataset += "}" // end of value datalabel
+                }
+                theDataset += "}}" // end of labels and datalabels
+                theDataset += "}" // end of dataset
+                theDatasets << theDataset
+
+                if(logEnable) log.debug "In eventChartingHandler - the datasets: ${theDatasets}"
+                buildChart += ",data:{datasets:" + theDatasets + "}"        
+
+                buildChart += ",options: {"   
+                buildChart += "fontColor:'" + labelColor + "'"
+                if (centerPercentage) buildChart += ",cutoutPercentage:" + centerPercentage
+                if (circumference) buildChart += ",circumference:" + circumference * Math.PI
+                if (rotation) buildChart += ",rotation:" + rotation * Math.PI
+
+                buildChart += ",plugins:{"
+                if (hideDataLabel) {
+                    buildChart      += "datalabels: { display: false},"
+                }
+                if ((settings["TopLabelType"] && settings["TopLabelType"] != "none") || (settings["MiddleLabelType"] && settings["MiddleLabelType"] != "none") || (settings["BottomLabelType"] && settings["BottomLabelType"] != "none")) {
+                    def labelIDs = ["Top", "Middle", "Bottom"]
+                    def labelMap = ["Top" : [:], "Middle" : [:], "Bottom" : [:]]
+                    labelIDs.each { -> labelID
+                        if (settings[labelID + "LabelType"] && settings[labelID + "LabelType"] != "none") {
+                            def labelValue = null
+                            def labelText = ""
+                            def labelColor = null
+                            
+                            if (settings[labelID + "LabelType"] == "title") {
+                                labelText = theChartTitle
+                                if (settings[labelID + "StaticLabelColor"]) labelColor = settings[labelID + "StaticLabelColor"]
+                            }
+                            else if (settings[labelID + "LabelType"] == "percentage" || settings[labelID + "LabelType"] == "sum") {
+                                def partialSum = 0
+                                def total = 0
+                                eventMap.each { it ->  
+                                    (theDev,theAttribute) = it.key.split(";")
+                                    theD = it.value
+                                    theD.each { tdata ->
+                                        if (settings[labelID + "LabelType"] == "percentage" && settings[labelID + "PercentageDataAttributes"].contains(theAttribute)) partialSum += tdata.value
+                                        else if (settings[labelID + "LabelType"] == "sum" && settings[labelID + "SumDataAttributes"].contains(theAttribute)) partialSum += tdata.value
+                                        total += tdata.value
+                                    }
+                                }
+                                if (settings[labelID + "LabelType"] == "percentage") {
+                                    labelValue = Math.round((partialSum / total) * 100)
+                                    labelText = labelValue + "%"
+                                }
+                                else if (settings[labelID + "LabelType"] == "sum") {
+                                    labelValue = partialSum
+                                    if (settings[labelID + "LabelPrefix"]) labelText += settings[labelID + "LabelPrefix"] + " "
+                                    if (settings[labelID + "DurationLabel"] == true) labelText += formatDuration(labelValue, settings[labelID + "ValueTimeUnits"], settings["showHourTimeUnits" + labelID], settings["showMinTimeUnits" + labelID], settings["showSecTimeUnits" + labelID])
+                                    else labelText += labelValue
+                                    if (settings[labelID + "LabelSuffix"])  labelText += " " + settings[labelID + "LabelSuffix"]
+                                }
+                            }
+                            else if (settings[labelID + "LabelType"] == "attribute") {
+                                if (settings[labelID + "LabelPrefix"]) labelText += settings[labelID + "LabelPrefix"] + " "
+                                labelValue = settings["theDevice" + labelID]?.currentValue(settings["theAtt" + labelID])
+                                if (settings[labelID + "DurationLabel"] == true) labelText += formatDuration(labelValue, settings[labelID + "ValueTimeUnits"], settings["showHourTimeUnits" + labelID], settings["showMinTimeUnits" + labelID], settings["showSecTimeUnits" + labelID])
+                                else labelText += labelValue
+                                if (settings[labelID + "LabelSuffix"])  labelText += " " + settings[labelID + "LabelSuffix"]
+                            }
+
+                            if (!settings[labelID + "DynamicLabelColor"] && settings[labelID + "StaticLabelColor"] != null) labelColor = settings[labelID + "StaticLabelColor"]
+                            else if (settings[labelID + "DynamicLabelColor"] && settings[labelID + "DynamicLabelColorType"] == "Independent") {
+                                for (i=1; i <= settings[labelID + "DynamicLabelNumStates"]; i++) {
+                                    def state = settings[labelID + "LabelState${i}"]
+                                    def stateColor = settings[labelID + "LabelState${i}Color"]
+                                    if (labelColor == null && state.contains(":")) {  // state is a range of values
+                                        def stateRangeString = state.split(":")
+                                        def stateRange = []
+                                        stateRange[0] = new BigDecimal(stateRangeString[0]).setScale(0, java.math.RoundingMode.HALF_UP)      
+                                        stateRange[1] = new BigDecimal(stateRangeString[1]).setScale(1, java.math.RoundingMode.HALF_UP)
+                                        if (stateRange[0] != null && stateRange[1] != null) {
+                                            if (labelValue >= stateRange[0] && labelValue <= stateRange[1]) labelColor = stateColor
+                                        }
+                                    }
+                                    else if (labelColor == null && state != null && state.contains(labelValue as String)) labelColor = stateColor
+                                    else if (logEnable) log.debug "Label Value = ${labelValue} of class ${labelValue.class.name}. No matchiung dynamic color state for state ${state} of class ${state.class.name} with color ${stateColor}"
+                                }                          
+                            }
+                            labelMap[labelID] = [value: labelValue, text: labelText, textSize: settings[labelID + "LabelSize"], color: labelColor, dynamicColorType: settings[labelID + "DynamicLabelColorType"]]
+                        }
+                    }
+                    
+                    buildChart += "doughnutlabel: {"
+                    buildChart  += "labels: ["
+
+                    labelMap.each {
+                        buildChart += "{ text: '" + it.text + "',"
+                        if (it.textSize) buildChart += "font: { size: " + it.textSize + "}"
+                        if (it.dynamicColorType == "Independent" && it.color != null) buildChart += "color:'" + it.color + "',"
+                        else if (it.dynamicColorType == "Follows Top Label" && labelMap["Top"].color != null) buildChart += "color:'" + labelMap["Top"].color + "',"
+                        else if (it.dynamicColorType == "Follows Middle Label" && labelMap["Middle"].color != null) buildChart += "color:'" + labelMap["Middle"].color + "',"
+                        else if (it.dynamicColorType == "Follows Bottom Label" && labelMap["Bottom"].color != null) buildChart += "color:'" + labelMap["Bottom"].color + "',"
+                        buildChart +=   "},"                       
+                    }
+
+                    buildChart      += "]," // end labels
+                    buildChart += "}," // end doughnutlabels
+                }
+                buildChart += "}"  // end plugins
+                buildChart += ",title: {display: " + ((theChartTitle != "" && theChartTitle != null && (showTitleInCenter == null || showTitleInCenter == false) ) ? 'true' : 'false') + ", text: '${theChartTitle}', fontColor: '${labelColor}'}"
+
+                buildChart += "}}"
+                if(logEnable) log.debug "builderChart = ${buildChart}"
+            }                
         }
         else if (gType == "stateTiming" || state.isNumericalData == false)  {
             if(logEnable) log.debug "In eventChartingHandler -- Building Non-Numerical Chart --"
@@ -818,8 +1237,8 @@ def eventChartingHandler(eventMap) {
             def legendItems = []
             def uniqueLegendItemIndices = []
             
-            def chartType = gType == "stateTiming" ? "horizontalBar" : gType            
-            def height = legendSpace + titleSpace + (barThickness + extraChartSpacing)*numAttributes
+            chartType = gType == "stateTiming" ? "horizontalBar" : gType            
+            height = legendSpace + titleSpace + (barThickness + extraChartSpacing)*numAttributes
 
             buildChart = "{type:'${chartType}'"
            
@@ -915,36 +1334,55 @@ def eventChartingHandler(eventMap) {
                         }
                         else if(logEnable) log.debug "In eventChartingHandler - Skipped adding ${tdata.value} because alreaday included in legend items"
 
+                        def color = null
+                        def bThickness = null
                         if (customizeStates) {    
-                            def color = null
-                            def bThickness = null
                             for (i=1; i <= numStates; i++) {
-                                if (settings["state${i}"] != null && settings["state${i}"].contains(tdata.value)) {
-                                    if (color == null) color = settings["state${i}Color"]
-                                    if (bThickness == null) bThickness = settings["state${i}BarThickness"]
+                                def state = settings["state${i}"]
+                                def stateColor = settings["state${i}Color"]
+                                def stateBarThickness = settings["state${i}BarThickness"]
+                                if (state != null && state.contains(":")) {  // state is a range of values
+                                    def stateRangeString = state.split(":")
+                                    def stateRange = []
+                                    stateRange[0] = new BigDecimal(stateRangeString[0]).setScale(0, java.math.RoundingMode.HALF_UP)      
+                                    stateRange[1] = new BigDecimal(stateRangeString[1]).setScale(1, java.math.RoundingMode.HALF_UP)
+                                    def dataValue = new BigDecimal(tdata.value).setScale(2, java.math.RoundingMode.HALF_UP)
+                                    if (stateRange[0] != null && stateRange[1] != null) {
+                                        if (dataValue >= stateRange[0] && dataValue <= stateRange[1]) {
+                                            if (color == null) color = stateColor
+                                            if (bThickness == null) bThickness = stateBarThickness
+                                        }
+                                    }
+                                    else log.warn "In eventChartingHandler - state range ignored because contains non-numeric values. Min value parsed is ${stateRange[0]} and max value parsed is ${stateRange[1]}"
+                                }
+                                else if (state != null && state.contains(tdata.value)) {
+                                    if (color == null) color = stateColor
+                                    if (bThickness == null) bThickness = stateBarThickness
                                 }
                             }
-                                 if (color == null) {
-                                     if(logEnable) log.debug "In eventChartingHandler - No color found for state ${tdata.value}. Using default color"
-                                     color = 'black'
-                                 }
-                                if (bThickness == null) {
-                                    if(logEnable) log.debug "In eventChartingHandler - No bar thickness found for state ${tdata.value}. Using default thickness"
-                                    bThickness = 30
-                                }
-                                theDataset += ", barThickness: ${bThickness}"
-                                theDataset += ",backgroundColor:'${color}'"
+                            if (color == null) {
+                                if(logEnable) log.debug "In eventChartingHandler - No color found for state ${tdata.value}. Using default color"
+                                color = 'black'
+                            }
+                            if (bThickness == null) {
+                                if(logEnable) log.debug "In eventChartingHandler - No bar thickness found for state ${tdata.value}. Using default thickness"
+                                bThickness = 30
+                            }
                         }   
                         else {                        
-                            theDataset += ", barThickness: ${globalBarThickness}"
+                            bThickness = globalBarThickness
                             
                             def theGreenData = ["active", "open", "locked", "present", "on", "open", "true", "dry"]
                             def theRedData = ["inactive", "closed", "unlocked", "not present", "off", "closed", "false", "wet"]
                         
-                            if (theGreenData.contains(tdata.value)) theDataset += ",backgroundColor:'green'"
-                            else if (theRedData.contains(tdata.value)) theDataset += ",backgroundColor:'red'"
+                            if (theGreenData.contains(tdata.value)) color = "green"
+                            else if (theRedData.contains(tdata.value)) color = "red"
                         }
-                        
+                        theDataset += ",barThickness: ${bThickness}"
+                        theDataset += ",backgroundColor:'${color}'"
+                        theDataset += ",borderColor:'${color}'"
+                        theDataset += ",borderWidth:1"
+                      //  theDataset += ",borderSkipped:'false'"
                         theDataset += "}"
                        
                         y++
@@ -978,7 +1416,9 @@ def eventChartingHandler(eventMap) {
                 if(logEnable) log.debug "In eventChartingHandler - the datasets: ${theDatasets}"
                 buildChart += ",data:{labels:${theLabels},datasets:${theDatasets}}"        
                 buildChart += ",options: {"     
-                buildChart += "title: {display: ${(theChartTitle != "" && theChartTitle != null) ? 'true' : 'false'}, text: '${theChartTitle}', fontColor: '${labelColor}'}"
+                buildChart += "title: {display: ${(theChartTitle != "" && theChartTitle != null) ? 'true' : 'false'}, text: '${theChartTitle}'"
+                if (labelColor) buildChart += ", fontColor: '${labelColor}'"
+                buildChart += "}"
   
                 // filter out redundant legend items
                 def legendFilterLogic = ""
@@ -1019,16 +1459,6 @@ def eventChartingHandler(eventMap) {
                 else buildChart += ",scales: {xAxes: [{display: ${displayXAxis}, stacked: ${stackXAxis}, type: 'time', time: {unit: '${xAxisTimeUnit ? xAxisTimeUnit : 'hour'}', displayFormats: {'hour': '${displayFormat}'}}, ticks: {${tickSource != null ? "source:'" + tickSource + "'," : ""} fontColor: '${labelColor}', maxRotation: ${maxRotation}, ${minDate != null && maxDate != null ? "min: new Date('" + minDate.format("yyyy-MM-dd'T'HH:mm:ss").toString() + "'), max: new Date('" + maxDate.format("yyyy-MM-dd'T'HH:mm:ss").toString() + "')" : ""}}, gridLines:{display: ${displayXAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}', tickMarkLength: 5, drawBorder: false}}], yAxes: [{display: ${displayYAxis}, stacked: ${stackYAxis}, ticks: {fontColor: '${labelColor}'}, gridLines:{display: ${displayYAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}]}"
                 
                 buildChart += "}}"
-                
-                
-          
-                chartMap = [format: "png", backgroundColor: bkgrdColor, height: height, chart: buildChart]                
-                def chartJson = new JsonOutput().toJson(chartMap)                
-                def shortURLResponse = sendJsonGetShortURL(chartJson)
-                if (shortURLResponse != null && shortURLResponse.url != null) {
-                    if(logEnable) log.debug "Got short Quick Chart URL: ${shortURLResponse.url}"
-                    buildChart = "<img width='100%' src=\"" + shortURLResponse.url + "\" onclick=\"window.open(this.src)\">"
-                }
             }            
         }
         else {
@@ -1183,19 +1613,19 @@ def eventChartingHandler(eventMap) {
                 if(yMinValue) buildChart += "min: ${yMinValue}, "
                 buildChart += "fontColor: '${labelColor}'}, gridLines:{display: ${displayYAxisGrid}, zeroLineColor: '${gridColor}', color: '${gridColor}'}}]}"
                 buildChart += "}}"
-                
-                if(logEnable) log.debug buildChart
-                
-                chartMap = [format: "png", backgroundColor: bkgrdColor, chart: buildChart]                
-                def chartJson = new JsonOutput().toJson(chartMap)                
-                def shortURLResponse = sendJsonGetShortURL(chartJson)
-                if (shortURLResponse != null && shortURLResponse.url != null) {
-                    if(logEnable) log.debug "Got short Quick Chart URL: ${shortURLResponse.url}"
-                    buildChart = "<img width='100%' src=\"" + shortURLResponse.url + "\" onclick=\"window.open(this.src)\">"
-                }
             }
         }
-        
+        if(logEnable) log.debug "builderChart = ${buildChart}"
+        chartMap = [format: "png", backgroundColor: bkgrdColor, chart: buildChart]  
+        if (chartHeight) chartMap['height'] = chartHeight 
+        else if (height != null) chartMap['height'] = height              
+        def chartJson = new JsonOutput().toJson(chartMap)                
+        def shortURLResponse = sendJsonGetShortURL(chartJson)
+        if (shortURLResponse != null && shortURLResponse.url != null) {
+            if(logEnable) log.debug "Got short Quick Chart URL: ${shortURLResponse.url}"
+            buildChart = "<img width='100%' src=\"" + shortURLResponse.url + "\" onclick=\"window.open(this.src)\">"
+        }
+
         // Send Chart to Device
         if(dataDevice && buildChart) {
             theCLength = buildChart.length()
@@ -1436,4 +1866,26 @@ Boolean getFileList(){
     } catch (e) {
         log.error(getExceptionMessageWithLine(e))
     }
+}
+
+def formatDuration(value, valueUnits, showHours, showMinutes, showSeconds) {
+    Integer hours = 0
+    Integer mins = 0
+    Integer secs = 0
+    def duration = Math.floor(value) as Integer
+    if (valueUnits == "seconds") {
+        hours = Math.floor(duration / 3600)
+        mins = Math.floor((duration % 3600) / 60)
+        secs = Math.floor(duration % 60)
+    }
+    else if (valueUnits == "minutes") {
+        hours = Math.floor(duration / 60)
+        mins = Math.floor((duration % 60) / 60)
+        secs = 0
+    }
+    def formattedValue = ""
+    if (showHours && hours > 0) formattedValue += hours + 'h'
+    if (showMinutes && mins > 0) formattedValue += mins + 'm'
+    if (showSeconds && secs > 0) formattedValue += secs + 's'
+    return formattedValue
 }
