@@ -470,47 +470,6 @@ def comparisonDataChartConfig() {
         labelInput("Top")
         labelInput("Middle")
         labelInput("Bottom")
-        /*
-        input "showTitleInCenter", "bool", title:"Show title in center?", width: 4, required: true, defaultValue: false, submitOnChange: true
-        if (showTitleInCenter) {
-            input "centerTitleSize", "number", title: "Center Title Size", width: 4
-            input "centerTitleColor", "text", title: "Center Title Color", width: 4
-        }
-        input "showDataLabelInCenter", "bool", title:"Show data label in center?", width: 4, required: true, defaultValue: false, submitOnChange: true
-        if (showDataLabelInCenter) {
-            input "centerDataLabelSize", "number", title: "Center Data Label Size", width: 4
-            input "staticCenterLabelColor", "text", title: "Static Center Data Label Color", width: 4
-             input "centerDataLabelType", "enum", title: "Center Data Label Type", options: ["sum" : "Data Sum Total", "attribute" : "Device Attribute Value"], submitOnChange: true, width: 12
-            if (centerDataLabelType == "attribute") {
-                deviceInput(false, false, false, true, "Center")
-                input "centerDataLabelValueUnitsSuffix", "bool", title: "Add Value Units Suffix to Data Labels?", defaultValue:false, submitOnChange:true, width: 12
-                if (centerDataLabelValueUnitsSuffix) {
-                    input "centerDataLabelValueUnits", "text", title: "Center Label Value Units Suffix", submitOnChange: false, width: 4
-                    input "centerUnitsSize", "number", title: "Center Units Size", width: 4
-                    input "centerUnitsColor", "text", title: "Center Units Color", width: 4
-                }
-                input "centerDurationLabel", "bool", title: "Display Center Label as Duration Data Label?", defaultValue:false, submitOnChange:true, width: 12
-                if (centerDurationLabel) {
-                    input "centerValueTimeUnits", "enum", title: "Select Center Value Time Units", options: ["minutes", "seconds"], submitOnChange: false, width: 12
-                    input "showHourTimeUnitsCenter", "bool", title: "Show Hours if > 0?", submitOnChange: false, width: 4
-                    input "showMinTimeUnitsCenter", "bool", title: "Show Minutes if > 0?", submitOnChange: false, width: 4
-                    input "showSecTimeUnitsCenter", "bool", title: "Show Seconds if > 0?", submitOnChange: false, width: 4
-                }
-            }
-            input "dynamicCenterLabelColor", "bool", title: "Configure Dynamic Center Data Label Color?", defaultValue:false, submitOnChange:true, width: 12
-            if (dynamicCenterLabelColor) {
-                input "dynamicCenterLabelNumStates", "number", title: "How many states?", defaultValue:2, submitOnChange:true, width: 6
-                paragraph "<small> States can be defined as a single text value, a single numeric value, or a range of numeric values. Define a range of numeric values as MIN:MAX (example: 1:50). Ranges are inclusive of both MIN and MAX. </small>"
-                if (!dynamicCenterLabelNumStates) app.updateSetting("dynamicCenterLabelNumStates",[type:"number",value:2]) 
-                if (dynamicCenterLabelNumStates) {
-                    for (i=1; i <= dynamicCenterLabelNumStates; i++) {
-                        input "centerLabelState${i}", "text", title: "State ${i}", submitOnChange:false, width: 6
-                        input "centerLabelState${i}Color", "text", title: "Color", submitOnChange:false, width: 6
-                    }
-                } 
-            }
-        }
-*/
     }
     
 }
@@ -957,7 +916,7 @@ def eventChartingHandler(eventMap) {
                 buildChart += "}}"
             }                
         }
-        else if (getChartConfigType(gType) == "comparisonData") {           
+        else if (getChartConfigType(gType) == "comparisonData") {          
             if(eventMap) {
                 theDatasets = []
                 theData = []
@@ -1077,13 +1036,14 @@ def eventChartingHandler(eventMap) {
                 if (rotation) buildChart += ",rotation:" + rotation * Math.PI
 
                 buildChart += ",plugins:{"
+                
                 if (hideDataLabel) {
                     buildChart      += "datalabels: { display: false},"
                 }
                 if ((settings["TopLabelType"] && settings["TopLabelType"] != "none") || (settings["MiddleLabelType"] && settings["MiddleLabelType"] != "none") || (settings["BottomLabelType"] && settings["BottomLabelType"] != "none")) {
                     def labelIDs = ["Top", "Middle", "Bottom"]
                     def labelMap = ["Top" : [:], "Middle" : [:], "Bottom" : [:]]
-                    labelIDs.each { -> labelID
+                    labelIDs.each { labelID ->
                         if (settings[labelID + "LabelType"] && settings[labelID + "LabelType"] != "none") {
                             def labelValue = null
                             def labelText = ""
@@ -1100,9 +1060,10 @@ def eventChartingHandler(eventMap) {
                                     (theDev,theAttribute) = it.key.split(";")
                                     theD = it.value
                                     theD.each { tdata ->
-                                        if (settings[labelID + "LabelType"] == "percentage" && settings[labelID + "PercentageDataAttributes"].contains(theAttribute)) partialSum += tdata.value
-                                        else if (settings[labelID + "LabelType"] == "sum" && settings[labelID + "SumDataAttributes"].contains(theAttribute)) partialSum += tdata.value
+                                        if (settings[labelID + "LabelType"] == "percentage" && settings[labelID + "PercentageDataAttributes"].collect{it.capitalize()}.contains(theAttribute)) partialSum += tdata.value
+                                        else if (settings[labelID + "LabelType"] == "sum" && settings[labelID + "SumDataAttributes"].collect{it.capitalize()}.contains(theAttribute)) partialSum += tdata.value
                                         total += tdata.value
+                                        log.debug "Testing ${theAttribute} with value ${tdata.value}. Selected attributes = ${settings[labelID + "PercentageDataAttributes"].collect{it.capitalize()}}. Partial sum = ${partialSum}. Total is ${total}"
                                     }
                                 }
                                 if (settings[labelID + "LabelType"] == "percentage") {
@@ -1148,27 +1109,31 @@ def eventChartingHandler(eventMap) {
                     }
                     
                     buildChart += "doughnutlabel: {"
-                    buildChart  += "labels: ["
-
-                    labelMap.each {
-                        buildChart += "{ text: '" + it.text + "',"
-                        if (it.textSize) buildChart += "font: { size: " + it.textSize + "}"
-                        if (it.dynamicColorType == "Independent" && it.color != null) buildChart += "color:'" + it.color + "',"
-                        else if (it.dynamicColorType == "Follows Top Label" && labelMap["Top"].color != null) buildChart += "color:'" + labelMap["Top"].color + "',"
-                        else if (it.dynamicColorType == "Follows Middle Label" && labelMap["Middle"].color != null) buildChart += "color:'" + labelMap["Middle"].color + "',"
-                        else if (it.dynamicColorType == "Follows Bottom Label" && labelMap["Bottom"].color != null) buildChart += "color:'" + labelMap["Bottom"].color + "',"
-                        buildChart +=   "},"                       
+                    def doughnutLabels = []
+                    labelMap.each { key, labelConfig ->
+                        if (labelConfig.text != null) {
+                            def label = ""
+                            label += "{ text: '" + labelConfig.text + "',"
+                            if (labelConfig.textSize) label += "font: { size: " + labelConfig.textSize + "},"
+                            if (labelConfig.dynamicColorType == "Independent" && labelConfig.color != null) label += "color:'" + labelConfig.color + "',"
+                            else if (labelConfig.dynamicColorType == "Follows Top Label" && labelMap["Top"].color != null) label += "color:'" + labelMap["Top"].color + "',"
+                            else if (labelConfig.dynamicColorType == "Follows Middle Label" && labelMap["Middle"].color != null) label += "color:'" + labelMap["Middle"].color + "',"
+                            else if (labelConfig.dynamicColorType == "Follows Bottom Label" && labelMap["Bottom"].color != null) label += "color:'" + labelMap["Bottom"].color + "',"
+                            label +=   "}"   
+                            doughnutLabels << label
+                        }                    
                     }
-
-                    buildChart      += "]," // end labels
+                    buildChart += "labels: ${doughnutLabels}"
                     buildChart += "}," // end doughnutlabels
                 }
+                
                 buildChart += "}"  // end plugins
                 buildChart += ",title: {display: " + ((theChartTitle != "" && theChartTitle != null && (showTitleInCenter == null || showTitleInCenter == false) ) ? 'true' : 'false') + ", text: '${theChartTitle}', fontColor: '${labelColor}'}"
 
                 buildChart += "}}"
                 if(logEnable) log.debug "builderChart = ${buildChart}"
-            }                
+            }      
+                      
         }
         else if (gType == "stateTiming" || state.isNumericalData == false)  {
             if(logEnable) log.debug "In eventChartingHandler -- Building Non-Numerical Chart --"
