@@ -462,41 +462,48 @@ def comparisonDataChartConfig() {
             if (addPercentageSubLabel) input "percentPosition", "enum", title: "Percent Position", options: ["end" : "Outside Circle", "bottom" : "Under Value"], submitOnChange: false, width: 4
             input "dataLabelPosition", "enum", title: "Data Label Position", options: ["Inside", "Outside"], defaultValue:"Inside", submitOnChange:false, width: 6
             input "dataLabelPositionOffset", "text", title: "Position Offset (number)", defaultValue:0, width: 6
-            customStateInput()
         }
-
+        customStateInput()
         paragraph "<hr><b>Center Label Configuration</b>" 
-        paragraph "<small>The Center of the Chart can include up to 3 rows of labels, each of which can include static text, dynamic data associated with the same device, or dynamic data associated with a different device.</small>"
-        labelInput("Top")
-        labelInput("Middle")
-        labelInput("Bottom")
+        paragraph "<small>The Center of the Chart can include multiple rows of labels, each of which can include static text, dynamic data associated with the same device, or dynamic data associated with a different device.</small>"
+        input "numCenterLabelRows", "number", title: "Number of Rows of Labels in Chart Center", width: 4, submitOnChange: true
+        if (numCenterLabelRows && numCenterLabelRows > 0) {
+            for (k=1; k <= numCenterLabelRows; k++) {
+                labelInput(k)
+            }
+        }
     }
     
 }
 
 def labelInput(labelID) {
-    input labelID + "LabelType", "enum", title: labelID + " Label Type", options: ["none" : "None", "title" : "Chart Title", "sum" : "Data Sum", "percentage" : "Data Percentage of Total", "attribute" : "Device Attribute Value"], defaultValue: "None", submitOnChange: true, width: 12
+    paragraph "<b>Configuration for Center Label Row ${labelID}</b>"
+    input labelID + "LabelType", "enum", title: "Row " + labelID + " Label Type", options: ["none" : "None", "title" : "Chart Title", "sum" : "Data Sum", "percentage" : "Data Percentage of Total", "attribute" : "Device Attribute Value"], defaultValue: "None", submitOnChange: true, width: 12
     if (settings[labelID + "LabelType"] && settings[labelID + "LabelType"] != "none") {
-        input labelID + "LabelSize", "number", title: labelID + " Label Text Size", width: 4
-        input labelID + "StaticLabelColor", "text", title: (labelID + " Static Label Color"), width: 4
+        input labelID + "LabelSize", "number", title: "Row " + labelID + " Label Text Size", width: 4
+        input labelID + "StaticLabelColor", "text", title: ("Row " + labelID + " Static Label Color"), width: 4
         if (settings[labelID + "LabelType"] != "title") {
             if (settings[labelID + "LabelType"] == "attribute") deviceInput(false, false, false, true, labelID)
             else if (settings[labelID + "LabelType"] == "percentage") input labelID + "PercentageDataAttributes", "enum", title: "Combined Percentage of Which Attribute(s)?", options: settings["theAtt"], multiple:true, submitOnChange:false, required: true
             else if (settings[labelID + "LabelType"] == "sum") input labelID + "SumDataAttributes", "enum", title: "Sum of Which Attribute(s)?", options: settings["theAtt"], multiple:true, submitOnChange:false, required: true
             if (settings[labelID + "LabelType"] != "percentage") {
-                input labelID + "LabelPrefix", "text", title: labelID + " Label Prefix", submitOnChange: false, width: 4
-                input labelID + "LabelSuffix", "text", title: labelID + " Label Suffix", submitOnChange: false, width: 4
-                input labelID + "DurationLabel", "bool", title: "Display " + labelID + " Label as Duration?", defaultValue:false, submitOnChange:true, width: 12
+                input labelID + "LabelPrefix", "text", title: "Row " + labelID + " Label Prefix", submitOnChange: false, width: 4
+                input labelID + "LabelSuffix", "text", title: "Row " + labelID + " Label Suffix", submitOnChange: false, width: 4
+                input labelID + "DurationLabel", "bool", title: "Display Row " + labelID + " Label as Duration?", defaultValue:false, submitOnChange:true, width: 12
                 if (settings[labelID + "DurationLabel"]) {
-                    input labelID + "ValueTimeUnits", "enum", title: "Select " + labelID + " Value Time Units", options: ["minutes", "seconds"], submitOnChange: false, width: 12
-                    input "showHourTimeUnits" + labelID, "bool", title: "Show Hours if > 0?", submitOnChange: false, width: 4
-                    input "showMinTimeUnits" + labelID, "bool", title: "Show Minutes if > 0?", submitOnChange: false, width: 4
-                    input "showSecTimeUnits" + labelID, "bool", title: "Show Seconds if > 0?", submitOnChange: false, width: 4
+                    input labelID + "ValueTimeUnits", "enum", title: "Select Row " + labelID + " Value Time Units", options: ["minutes", "seconds"], submitOnChange: false, width: 12
+                    input "showHourTimeUnits" + labelID, "bool", title: "Show Hours if > 0?", submitOnChange: false, width: 4, defaultValue: true
+                    input "showMinTimeUnits" + labelID, "bool", title: "Show Minutes if > 0?", submitOnChange: false, width: 4, defaultValue: true
+                    input "showSecTimeUnits" + labelID, "bool", title: "Show Seconds if > 0?", submitOnChange: false, width: 4, defaultValue: false
                 }
             }
-            input labelID + "DynamicLabelColor", "bool", title: "Configure Dynamic Label Color for " + labelID + "?", defaultValue:false, submitOnChange:true, width: 12
+            input labelID + "DynamicLabelColor", "bool", title: "Configure Dynamic Label Color for Row " + labelID + "?", defaultValue:false, submitOnChange:true, width: 12
             if (settings[labelID + "DynamicLabelColor"]) {
-                input labelID + "DynamicLabelColorType", "enum", title: "Rules For " + labelID + " Label Dynamic Color", options: ["Independent", "Follows Top Label", "Follows Middle Label", "Follows Bottom Label"], defaultValue: "Independent", submitOnChange: true, width: 6
+                def colorRuleOptions = ["Independent" : "Independent"]
+                for (j=1; j <= numCenterLabelRows; j++) {
+                    if (j != labelID) colorRuleOptions << ["${j}" : "Follows Row ${j}"]
+                }
+                input labelID + "DynamicLabelColorType", "enum", title: "Rules For Row " + labelID + " Label Dynamic Color", options: colorRuleOptions, defaultValue: "Independent", submitOnChange: true, width: 6
                 if (settings[labelID + "DynamicLabelColorType"] == "Independent") {
                     input labelID + "DynamicLabelNumStates", "number", title: "How many states?", defaultValue:2, submitOnChange:true, width: 6
                     paragraph "<small> States can be defined as a single text value, a single numeric value, or a range of numeric values. Define a range of numeric values as MIN:MAX (example: 1:50). Ranges are inclusive of both MIN and MAX. </small>"
@@ -1040,10 +1047,9 @@ def eventChartingHandler(eventMap) {
                 if (hideDataLabel) {
                     buildChart      += "datalabels: { display: false},"
                 }
-                if ((settings["TopLabelType"] && settings["TopLabelType"] != "none") || (settings["MiddleLabelType"] && settings["MiddleLabelType"] != "none") || (settings["BottomLabelType"] && settings["BottomLabelType"] != "none")) {
-                    def labelIDs = ["Top", "Middle", "Bottom"]
-                    def labelMap = ["Top" : [:], "Middle" : [:], "Bottom" : [:]]
-                    labelIDs.each { labelID ->
+                if (numCenterLabelRows && numCenterLabelRows > 0) {
+                    def labelMap = [:]
+                    for (labelID=1; labelID <= numCenterLabelRows; labelID++) {
                         if (settings[labelID + "LabelType"] && settings[labelID + "LabelType"] != "none") {
                             def labelValue = null
                             def labelText = ""
@@ -1110,15 +1116,17 @@ def eventChartingHandler(eventMap) {
                     
                     buildChart += "doughnutlabel: {"
                     def doughnutLabels = []
+                    log.debug "labelMap = ${labelMap}"
                     labelMap.each { key, labelConfig ->
                         if (labelConfig.text != null) {
+                            log.debug "labelConfig.dynamicColorType = ${labelConfig.dynamicColorType}"
                             def label = ""
                             label += "{ text: '" + labelConfig.text + "',"
                             if (labelConfig.textSize) label += "font: { size: " + labelConfig.textSize + "},"
                             if (labelConfig.dynamicColorType == "Independent" && labelConfig.color != null) label += "color:'" + labelConfig.color + "',"
-                            else if (labelConfig.dynamicColorType == "Follows Top Label" && labelMap["Top"].color != null) label += "color:'" + labelMap["Top"].color + "',"
-                            else if (labelConfig.dynamicColorType == "Follows Middle Label" && labelMap["Middle"].color != null) label += "color:'" + labelMap["Middle"].color + "',"
-                            else if (labelConfig.dynamicColorType == "Follows Bottom Label" && labelMap["Bottom"].color != null) label += "color:'" + labelMap["Bottom"].color + "',"
+                            else if (labelConfig.dynamicColorType != null && labelConfig.dynamicColorType != "Independent" && labelMap[labelConfig.dynamicColorType as Integer] != null && labelMap[labelConfig.dynamicColorType as Integer].color != null) {
+                                    label += "color:'" + labelMap[labelConfig.dynamicColorType as Integer].color + "',"
+                            }    
                             label +=   "}"   
                             doughnutLabels << label
                         }                    
