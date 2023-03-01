@@ -97,7 +97,7 @@ def pageConfig() {
         def axisType = null
         
         section(getFormat("header-green", "${getImage("Blank")}"+" Genearl Chart Options")) {
-            input "gType", "enum", title: "Chart Style", options: ["bar","line", "horizontalBar","stateTiming","radar","pie","doughnut","polar","scatter","bubble","gauge","radialGauge","violin","sparkline","progressBar",""], submitOnChange:true, width:4, required: true
+            input "gType", "enum", title: "Chart Style", options: ["bar","line", "horizontalBar","stateTiming","pie","doughnut","scatter","bubble","gauge","radialGauge","violin","sparkline","progressBar","radialProgressBar",""], submitOnChange:true, width:4, required: true
             chartConfigType = getChartConfigType(gType)
             axisType = getChartAxisType(gType)
             
@@ -174,20 +174,21 @@ def pageConfig() {
 
 def getChartConfigType(gType) {
     def configType = "seriesData"
-    if (gType == "radialGauge" || gType == "gauge" || gType == "progressBar") configType = "pointData"
+    if (gType == "radialGauge" || gType == "gauge" || gType == "progressBar" || gType == "radialProgressBar") configType = "pointData"
     else if (gType == "pie" || gType == "doughnut") configType = "comparisonData"
     return configType
 }
 
 def getChartAxisType(gType) {
     def axisType = "xy"
-    if (gType == "radialGauge" || gType == "gauge" || gType == "progressBar" || gType == "pie" || gType == "doughnut" || gType == "polarArea" || gType == "radar") axisType = "circular"
+    if (gType == "radialGauge" || gType == "gauge" || gType == "radialProgressBar" || gType == "pie" || gType == "doughnut" || gType == "polarArea" || gType == "radar") axisType = "circular"
+    if (gType == "progressBar") axisType = "linear"
     return axisType
 }
 
 def hasGrid(gType) {
     def hadGrid = true
-    if (gType == "radialGauge" || gType == "gauge" || gType == "progressBar" || gType == "pie" || gType == "doughnut") hasGrid = false
+    if (gType == "radialGauge" || gType == "gauge" || gType == "progressBar" || gType == "radialProgressBar" || gType == "pie" || gType == "doughnut") hasGrid = false
     return hasGrid
 }
 
@@ -290,14 +291,14 @@ def seriesDataChartConfig() {
     }
 }
 
-def customStateInput() {
+def customStateInput(onlyByValue = false) {
     def customizeBar = hasBar(gType) && gType != "progressBar"
     def inputWidth = customizeBar ? 4 : 6
     input "customizeStates", "bool", title: "Customize State Colors ${customizeBar ? 'and/or Bar Thickness?' : ''}", defaultValue:false, submitOnChange:true, width: 12
     if (customizeStates) {    
-        input "customStateCriteria", "enum", title: "Customize States By...", options: ["Value","Device","Attribute"], submitOnChange:true, width:6
+        if (!onlyByValue) input "customStateCriteria", "enum", title: "Customize States By...", options: ["Value","Device","Attribute"], submitOnChange:true, width:6
         def instructions = "<small>State Color" + (customizeBar ? ' and Bar Thickness' : '') + " is set to the color" + (customizeBar ? ' and bar thickness' : '') + " specified for whatever state matches first, overriding any global settings specified above. </small>"
-        if (customStateCriteria == "Value") {
+        if (customStateCriteria == "Value" || onlyByValue) {
             input "numStates", "number", title: "How many states?", defaultValue:2, submitOnChange:true, width: 6
             instructions += "<small> States can be defined as a single text value, a single numeric value, or a range of numeric values. Define a range of numeric values as MIN:MAX (example: 1:50). Ranges are inclusive of both MIN and MAX. </small>"
             paragraph instructions
@@ -416,7 +417,7 @@ def XYAxisConfig() {
 
 def pointDataChartConfig() {
     if (gType == "radialGauge") {
-        section(getFormat("header-green", "${getImage("Blank")}"+" Chart Configuration")) {
+        section(getFormat("header-green", "${getImage("Blank")}"+" Radial Gauge Configuration")) {
             input "centerFillColor", "text", title: "Center Background Color", defaultValue:"white", submitOnChange: false, width: 6
             input "centerImage", "text", title: "Center Background Image", description: "Overrides any specified center color", defaultValue:"", submitOnChange: false, width: 6
             input "centerSubText", "text", title: "Center Subtext", defaultValue:"", submitOnChange: false, width: 6
@@ -432,15 +433,63 @@ def pointDataChartConfig() {
             input "valueUnits", "text", title: "Add Value Units Suffix", defaultValue:"", submitOnChange: false, width: 4
             input "domainMin", "number", title: "Minimum Possible Value", submitOnChange:false, width: 4, required: true
             input "domainMax", "number", title: "Maximum Possible Value", submitOnChange:false, width: 4, required: true
+            customStateInput(true)
         }
     }
     else if (gType == "progressBar") {
-        input "progressTrackColor", "text", title: "Progress Track Color", defaultValue:"gray", submitOnChange: false, width: 4
-        deviceInput(false, false) 
-        input "valueUnits", "text", title: "Add Value Units Suffix", defaultValue:"%", submitOnChange: false, width: 6
-        input "maxProgress", "number", title: "Maximum Progress Value", width: 6, defaultValue: 100
+        section(getFormat("header-green", "${getImage("Blank")}"+" Progress Bar Configuration")) {
+            input "progressTrackColor", "text", title: "Progress Track Color", defaultValue:"gray", submitOnChange: false, width: 4
+        }
+        section(getFormat("header-green", "${getImage("Blank")}"+" Chart Data Configuration")) {
+            deviceInput(false, false) 
+            input "valueUnits", "text", title: "Add Value Units Suffix", defaultValue:"%", submitOnChange: false, width: 6
+            input "maxProgress", "number", title: "Maximum Progress Value", width: 6, defaultValue: 100
+            customStateInput(true)
+        }
     }
-    customStateInput()
+    else if (gType == "radialProgressBar") {
+        section(getFormat("header-green", "${getImage("Blank")}"+" Radial Progress Bar Configuration")) {
+            input "centerPercentage", "number", title: "Center Size (Percentage)", width: 4
+            input "circumference", "decimal", title: "Circumference (* pi)", width: 4
+            input "rotation", "decimal", title: "Rotation (* pi)", width: 4
+            input "trackColor", "text", title: "Track Background Color", defaultValue:"gray", submitOnChange:false, width: 6
+            input "trackFillColor", "text", title: "Track Fill Color", defaultValue:"green", submitOnChange: false, width: 6
+        }
+        section(getFormat("header-green", "${getImage("Blank")}"+" Chart Data Configuration")) {
+            deviceInput(false, false, false, false)    
+            input "domainMin", "number", title: "Minimum Possible Value", submitOnChange:false, width: 4, required: true
+            input "domainMax", "number", title: "Maximum Possible Value", submitOnChange:false, width: 4, required: true
+        }
+        section(getFormat("header-green", "${getImage("Blank")}"+" Data Label Configuration")) {
+            input "hideDataLabel", "bool", title: "Hide Data Label?", defaultValue:false, submitOnChange:true, width: 12
+            if (!hideDataLabel) {
+                input "valueUnitsSuffix", "bool", title: "Add Value Units Suffix to Data Labels?", defaultValue:false, submitOnChange:true, width: 6
+                if (valueUnitsSuffix) input "valueUnits", "text", title: "Value Units Suffix", submitOnChange: false, width: 6
+                input "durationLabel", "bool", title: "Display as Duration?", defaultValue:false, submitOnChange:true, width: 12
+                if (durationLabel) {
+                    input "attributeValueTimeUnits", "enum", title: "Select Attribute Value Time Units", options: ["minutes", "seconds"], submitOnChange: false, width: 12
+                    input "showHourTimeUnits", "bool", title: "Show Hours if > 0?", submitOnChange: false, width: 4
+                    input "showMinTimeUnits", "bool", title: "Show Minutes if > 0?", submitOnChange: false, width: 4
+                    input "showSecTimeUnits", "bool", title: "Show Seconds if > 0?", submitOnChange: false, width: 4
+                }
+                input "percentageLabel", "bool", title: "Display as Percentage?", defaultValue:false, submitOnChange:true, width: 12
+                input "addPercentageSubLabel", "bool", title: "Add Percentage Sublabel?", defaultValue:false, submitOnChange:true, width: 12
+                if (addPercentageSubLabel) input "percentPosition", "enum", title: "Percent Position", options: ["end" : "Outside Circle", "bottom" : "Under Value"], submitOnChange: false, width: 4
+                input "dataLabelPosition", "enum", title: "Data Label Position", options: ["Inside", "Outside"], defaultValue:"Inside", submitOnChange:false, width: 6
+                input "dataLabelPositionOffset", "text", title: "Position Offset (number)", defaultValue:0, width: 6
+            }
+            customStateInput(true)
+        }
+        section(getFormat("header-green", "${getImage("Blank")}"+" Center Label(s) Configuration")) {
+            paragraph "<small>The Center of the Chart can include multiple rows of labels, each of which can include static text, dynamic data associated with the same device, or dynamic data associated with a different device.</small>"
+            input "numCenterLabelRows", "number", title: "Number of Rows of Labels in Chart Center", width: 4, submitOnChange: true
+            if (numCenterLabelRows && numCenterLabelRows > 0) {
+                for (k=1; k <= numCenterLabelRows; k++) {
+                    labelInput(k)
+                }
+            }
+        }
+    }
 }
 
 def comparisonDataChartConfig() {
@@ -451,7 +500,9 @@ def comparisonDataChartConfig() {
                 input "circumference", "decimal", title: "Circumference (* pi)", width: 4
                 input "rotation", "decimal", title: "Rotation (* pi)", width: 4
             }
-            deviceInput(true, true, true, false)     
+        }
+        section(getFormat("header-green", "${getImage("Blank")}"+" Chart Data Configuration")) {
+            deviceInput(true, true, true, false)    
         }
         section(getFormat("header-green", "${getImage("Blank")}"+" Data Label Configuration")) {
             input "hideDataLabel", "bool", title: "Hide Data Label?", defaultValue:false, submitOnChange:true, width: 12
@@ -474,7 +525,7 @@ def comparisonDataChartConfig() {
             customStateInput()
         }
         if (gType == "doughnut") {
-            section(getFormat("header-green", "${getImage("Blank")}"+" center Label(s) Configuration")) {
+            section(getFormat("header-green", "${getImage("Blank")}"+" Center Label(s) Configuration")) {
                 paragraph "<small>The Center of the Chart can include multiple rows of labels, each of which can include static text, dynamic data associated with the same device, or dynamic data associated with a different device.</small>"
                 input "numCenterLabelRows", "number", title: "Number of Rows of Labels in Chart Center", width: 4, submitOnChange: true
                 if (numCenterLabelRows && numCenterLabelRows > 0) {
