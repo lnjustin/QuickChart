@@ -102,7 +102,8 @@ def pageConfig() {
             axisType = getChartAxisType(gType)
             
             input "theChartTitle", "text", title: "Chart Title", submitOnChange:true, width:4   
-            input "chartHeight", "number", title: "Chart Height (pixels)", description: "Leave Blank for Default Height", submitOnChange:false, width: 4         
+            input "chartHeight", "number", title: "Chart Height (pixels)", description: "Leave Blank for Default Height", submitOnChange:false, width: 4       
+            input "chartPadding", "number", title: "Chart Padding (pixels)", description: "Leave Blank for Default Padding. Pad if labels get cut off.", submitOnChange:false, width: 4   
             input "bkgrdColor", "text", title: "Background Color", defaultValue:"white", submitOnChange:false, width: 4
             input "labelColor", "text", title: "Label Color", defaultValue:"black", submitOnChange:false, width: 4
             input "labelSize", "number", title: "Label size (pixels)", submitOnChange:false, width: 4
@@ -481,19 +482,21 @@ def pointDataChartConfig() {
         section(getFormat("header-green", "${getImage("Blank")}"+" Progress Range Label Configuration")) {
             input "showProgressRangeLabels", "bool", title: "Show Progress Range Labels?", defaultValue:true, submitOnChange:true, width: 12
             if (showProgressRangeLabels == true) {
-                input "progressRangeLabelType", "enum", options: ["As Value", "As Percentage Progress"], title: "Select Label Type", defaultValue:"As Value", submitOnChange:true, width: 6
-                if (progressRangeLabelType == "As Value") {
-                    input "valueUnits", "text", title: "Value Units Suffix", submitOnChange: false, width: 6
-                    input "durationLabel", "bool", title: "Display as Duration?", defaultValue:false, submitOnChange:true, width: 12
+                input "progressRangeLabelType", "enum", options: ["value" : "As Value", "percentage" : "As Percentage Progress"], title: "Select Label Type", defaultValue:"As Value", submitOnChange:true, width: 6
+                if (progressRangeLabelType == "value") {
+                    input "progressRangeValueUnits", "text", title: "Value Units Suffix", submitOnChange: false, width: 6
+                    input "progressRangeDurationLabel", "bool", title: "Display as Duration?", defaultValue:false, submitOnChange:true, width: 12
                     if (durationLabel) {
-                        input "attributeValueTimeUnits", "enum", title: "Select Attribute Value Time Units", options: ["minutes", "seconds"], submitOnChange: false, width: 12
-                        input "showHourTimeUnits", "bool", title: "Show Hours if > 0?", submitOnChange: false, width: 4
-                        input "showMinTimeUnits", "bool", title: "Show Minutes if > 0?", submitOnChange: false, width: 4
-                        input "showSecTimeUnits", "bool", title: "Show Seconds if > 0?", submitOnChange: false, width: 4
+                        input "progressRangeValueTimeUnits", "enum", title: "Select Attribute Value Time Units", options: ["minutes", "seconds"], submitOnChange: false, width: 12
+                        input "progressRangeshowHourTimeUnits", "bool", title: "Show Hours if > 0?", submitOnChange: false, width: 4
+                        input "progressRangeShowMinTimeUnits", "bool", title: "Show Minutes if > 0?", submitOnChange: false, width: 4
+                        input "progressRangeShowSecTimeUnits", "bool", title: "Show Seconds if > 0?", submitOnChange: false, width: 4
                     }
                 }
-                input "dataLabelPosition", "enum", title: "Data Label Position", options: ["Inside", "Outside"], defaultValue:"Inside", submitOnChange:false, width: 6
-                input "dataLabelPositionOffset", "text", title: "Position Offset (number)", defaultValue:0, width: 6
+                input "progressRangeLabelPosition", "enum", title: "Data Label Position", options: ["start" : "Inside", "end" : "Outside"], defaultValue:"Inside", submitOnChange:false, width: 6
+                input "progressRangeLabelPositionOffset", "text", title: "Position Offset (number)", defaultValue:0, width: 6
+                input "progressRangeLabelSize", "number", title: "Data Label Size (number)", width: 6
+                input "progressRangeLabelColor", "text", title: "Data Label Color", width: 6
             }
         }
         section(getFormat("header-green", "${getImage("Blank")}"+" Center Label(s) Configuration")) {
@@ -999,6 +1002,7 @@ def eventChartingHandler(eventMap) {
 
                     buildChart += ",options: {"   
                     buildChart += "fontColor:'" + labelColor + "'"
+                    if (chartPadding) buildChart += ",layout: { padding: " + chartPadding + "}"
                     if (gType == "radialGauge") {   
                         if (centerImage != null && centerImage != "") buildChart += ",plugins:{backgroundImageUrl:'" + centerImage + "'}"
                         buildChart += ",domain: [" + domainMin + "," + domainMax + "]"
@@ -1109,7 +1113,19 @@ def eventChartingHandler(eventMap) {
                     buildChart = "{type:'doughnut'"
                     buildChart += ",data:{"
 
-                    def labels = theDataMaps.collect { return "'" + it.label + "'"}
+                    def labels = theDataMaps.collect { 
+                        def formattedLabel = ""
+                        if (it.label != "") {
+                            if (progressRangeLabelType == "percentage") formattedLabel = "" + Math.round((it.label as Float) / (domainMax as Float) * 100) + "%"
+                            else if (progressRangeLabelType == "value") {
+                                if (progressRangeDurationLabel) {
+                                    formattedLabel = formatDuration(it.label, progressRangeValueTimeUnits, progressRangeShowHourTimeUnits, progressRangeShowMinTimeUnits, progressRangeShowSecTimeUnits)
+                                }
+                                else if (progressRangeValueUnits) formattedLabel = it.label + " " + progressRangeValueUnits
+                            }
+                        }
+                        return "'" + formattedLabel + "'"
+                    }
                     buildChart      += "labels:" + labels + ","  
 
                     def data = theDataMaps.collect { return it.data }
@@ -1126,11 +1142,19 @@ def eventChartingHandler(eventMap) {
                     if (centerPercentage) buildChart += ",cutoutPercentage:" + centerPercentage
                     if (circumference) buildChart += ",circumference:" + circumference * Math.PI
                     if (rotation) buildChart += ",rotation:" + rotation * Math.PI
+                    if (chartPadding) buildChart += ",layout: { padding: " + chartPadding + "}"
 
                     buildChart += ",plugins:{"
                     buildChart += "datalabels:{"
-                    buildChart += "display: true,"
+                    buildChart += "display: " + showProgressRangeLabels + ","
+                    if (progressRangeLabelPosition) {
+                        buildChart += "anchor:'" + progressRangeLabelPosition + "',"
+                        buildChart += "align:'" + progressRangeLabelPosition + "',"
+                        if (progressRangeLabelPositionOffset) buildChart += "offset:" + progressRangeLabelPositionOffset + ","
+                    }
                     buildChart += "formatter: (val, ctx) => { return ctx.chart.data.labels[ctx.dataIndex];},"
+                    buildChart += "color:'" + progressRangeLabelColor + "',"
+                    buildChart += "font: { size:" + progressRangeLabelSize + "},"
                     buildChart += "}"
                     buildChart += "}"
 /*
@@ -1229,6 +1253,7 @@ def eventChartingHandler(eventMap) {
                     
                     buildChart += "}"  // end plugins
                     */
+                    buildChart += ",legend:{display: false}"
                     buildChart += ",title: {display: " + ((theChartTitle != "" && theChartTitle != null && (showTitleInCenter == null || showTitleInCenter == false) ) ? 'true' : 'false') + ", text: '${theChartTitle}', fontColor: '${labelColor}'}"
 
                     buildChart += "}}"
@@ -1354,6 +1379,7 @@ def eventChartingHandler(eventMap) {
                 if (centerPercentage) buildChart += ",cutoutPercentage:" + centerPercentage
                 if (circumference) buildChart += ",circumference:" + circumference * Math.PI
                 if (rotation) buildChart += ",rotation:" + rotation * Math.PI
+                if (chartPadding) buildChart += ",layout: { padding: " + chartPadding + ",}"
 
                 buildChart += ",plugins:{"
                 
@@ -1703,6 +1729,7 @@ def eventChartingHandler(eventMap) {
                 buildChart += ",data:{labels:${theLabels},datasets:${theDatasets}}"        
                 buildChart += ",options: {"     
                 buildChart += "title: {display: ${(theChartTitle != "" && theChartTitle != null) ? 'true' : 'false'}, text: '${theChartTitle}'"
+                if (chartPadding) buildChart += ",layout: { padding: " + chartPadding + ",}"
                 if (labelColor) buildChart += ", fontColor: '${labelColor}'"
                 buildChart += "}"
   
@@ -1868,6 +1895,7 @@ def eventChartingHandler(eventMap) {
                 }
                 buildChart += "], labels:${theLabels}},options: {"
                 buildChart += "title: {display: ${(theChartTitle != "" && theChartTitle != null) ? 'true' : 'false'}, text: '${theChartTitle}', fontColor: '${labelColor}'}"
+                if (chartPadding) buildChart += ",layout: { padding: " + chartPadding + ",}"
                 buildChart += ",legend:{display: ${displayLegend}"
                 if (legendBoxWidth != null || legendFontSize != null || labelColor != null) {
                     buildChart += ", labels: {"
