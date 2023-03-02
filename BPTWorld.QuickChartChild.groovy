@@ -469,8 +469,8 @@ def pointDataChartConfig() {
                 if (numRanges) {
                     for (i=1; i <= numRanges; i++) {
                         input "range${i}", "text", title: "Range ${i}", submitOnChange:false, width: 4
-                        input "range${i}FillColor", "text", title: "Fill color showing at least some progress in range", submitOnChange:false, width: 4
-                        input "range${i}TrackColor", "text", title: "Track color between min and max of range", submitOnChange:false, width: 4
+                        input "range${i}FillColor", "text", title: "Fill color showing progress in Range ${i}", submitOnChange:false, width: 4
+                        input "range${i}TrackColor", "text", title: "Track color between min and max of Range ${i}", submitOnChange:false, width: 4
                     }
                 }   
             }
@@ -479,8 +479,8 @@ def pointDataChartConfig() {
                 input "staticProgressTrackColor", "text", title: "Static Progress Track Color", submitOnChange:false, width: 6
             }
         }
-        section(getFormat("header-green", "${getImage("Blank")}"+" Progress Range Label Configuration")) {
-            input "showProgressRangeLabels", "bool", title: "Show Progress Range Labels?", defaultValue:true, submitOnChange:true, width: 12
+        section(getFormat("header-green", "${getImage("Blank")}"+" Range Label Configuration")) {
+            input "showProgressRangeLabels", "bool", title: "Show Range Labels?", defaultValue:true, submitOnChange:true, width: 12
             if (showProgressRangeLabels == true) {
                 input "progressRangeLabelType", "enum", options: ["value" : "As Value", "percentage" : "As Percentage Progress"], title: "Select Label Type", defaultValue:"As Value", submitOnChange:true, width: 6
                 if (progressRangeLabelType == "value") {
@@ -488,15 +488,18 @@ def pointDataChartConfig() {
                     input "progressRangeDurationLabel", "bool", title: "Display as Duration?", defaultValue:false, submitOnChange:true, width: 12
                     if (durationLabel) {
                         input "progressRangeValueTimeUnits", "enum", title: "Select Attribute Value Time Units", options: ["minutes", "seconds"], submitOnChange: false, width: 12
-                        input "progressRangeshowHourTimeUnits", "bool", title: "Show Hours if > 0?", submitOnChange: false, width: 4
+                        input "progressRangeShowHourTimeUnits", "bool", title: "Show Hours if > 0?", submitOnChange: false, width: 4
                         input "progressRangeShowMinTimeUnits", "bool", title: "Show Minutes if > 0?", submitOnChange: false, width: 4
                         input "progressRangeShowSecTimeUnits", "bool", title: "Show Seconds if > 0?", submitOnChange: false, width: 4
                     }
                 }
-                input "progressRangeLabelPosition", "enum", title: "Data Label Position", options: ["start" : "Inside", "end" : "Outside"], defaultValue:"Inside", submitOnChange:false, width: 6
+                input "progressRangeLabelPosition", "enum", title: "Range Label Position", options: ["start" : "Inside", "end" : "Outside"], defaultValue:"Inside", submitOnChange:false, width: 6
                 input "progressRangeLabelPositionOffset", "text", title: "Position Offset (number)", defaultValue:0, width: 6
-                input "progressRangeLabelSize", "number", title: "Data Label Size (number)", width: 6
-                input "progressRangeLabelColor", "text", title: "Data Label Color", width: 6
+                input "progressRangeLabelSize", "number", title: "Range Label Size (number)", width: 4
+                input "progressRangeLabelColor", "text", title: "Range Label Color", width: 4
+                input "progressRangeBorderColor", "text", title: "Range Border Color", submitOnChange: false, width: 4
+                input "progressDataBorderColor", "text", title: "Radial Data Border Color", submitOnChange: false, width: 6
+                input "progressDataLabel", "bool", title: "Show Radial Label for Data?", submitOnChange: false, width: 6
             }
         }
         section(getFormat("header-green", "${getImage("Blank")}"+" Center Label(s) Configuration")) {
@@ -606,15 +609,16 @@ def radialProgressGaugelabelInput(labelID) {
     paragraph "<div style='color:#000000;font-weight: bold;background-color:#ededed;border: 1px solid;box-shadow: 2px 3px #A9A9A9'> <b>Configuration for Center Label Row ${labelID}</b></div>"
     input labelID + "LabelType", "enum", title: "Row " + labelID + " Label Type", options: ["none" : "None", "title" : "Chart Title", "value" : "Data Value", "percentage" : "Percentage Progress", "attribute" : "Device Attribute Value"], defaultValue: "None", submitOnChange: true, width: 12
     if (settings[labelID + "LabelType"] && settings[labelID + "LabelType"] != "none") {
-        input labelID + "LabelSize", "number", title: "Row " + labelID + " Label Text Size", width: 4
-        input labelID + "LabelColorSetting", "enum", options: ["Static Color", "Follow Range Color"], title: ("Row " + labelID + " Label Color Setting"), width: 4
-        if (settings[labelID + "LabelColorSetting"] == "Static Color") input labelID + "StaticLabelColor", "text", title: ("Row " + labelID + " Static Label Color"), width: 4
+        def inputWidth = (settings[labelID + "LabelColorSetting"] == "static") ? 4 : 6
+        input labelID + "LabelSize", "number", title: "Row " + labelID + " Label Text Size", width: inputWidth
+        input labelID + "LabelColorSetting", "enum", options: ["static" : "Static Color", "follow" : "Follow Range Color"], title: ("Row " + labelID + " Label Color Setting"), width: inputWidth, submitOnChange: true
+        if (settings[labelID + "LabelColorSetting"] == "static") input labelID + "StaticLabelColor", "text", title: ("Row " + labelID + " Static Label Color"), width: inputWidth
 
         if (settings[labelID + "LabelType"] != "title") {
             if (settings[labelID + "LabelType"] == "attribute") deviceInput(false, false, false, true, labelID)
             if (settings[labelID + "LabelType"] == "value") {
-                input labelID + "LabelPrefix", "text", title: "Row " + labelID + " Label Prefix", submitOnChange: false, width: 4
-                input labelID + "LabelSuffix", "text", title: "Row " + labelID + " Label Suffix", submitOnChange: false, width: 4
+                input labelID + "LabelPrefix", "text", title: "Row " + labelID + " Label Prefix", submitOnChange: false, width: 6
+                input labelID + "LabelSuffix", "text", title: "Row " + labelID + " Label Suffix", submitOnChange: false, width: 6
                 input labelID + "DurationLabel", "bool", title: "Display Row " + labelID + " Label as Duration?", defaultValue:false, submitOnChange:true, width: 12
                 if (settings[labelID + "DurationLabel"]) {
                     input labelID + "ValueTimeUnits", "enum", title: "Select Row " + labelID + " Value Time Units", options: ["minutes", "seconds"], submitOnChange: false, width: 12
@@ -938,6 +942,7 @@ def eventChartingHandler(eventMap) {
         theDataset = []           
         def chartType = gType     
         def height = null   
+        def showTitleInCenter = null
         buildChart = "{type:'${chartType}'"
 
         if (getChartConfigType(gType) == "pointData") {
@@ -1047,6 +1052,7 @@ def eventChartingHandler(eventMap) {
 
                     def theDataMaps = []
                     def theLabels = []
+                    def theDataFillColor = null
                     if (showProgressRanges == true) {
                         def rangeList = []
                         for (i=1; i <= numRanges; i++) {
@@ -1070,44 +1076,46 @@ def eventChartingHandler(eventMap) {
 
                         if (logEnable) log.debug "In eventChartingHandler - sorted range list is ${rangeList}"
 
-                        def rangeMarkerColor = 'white'
-                        def rangeMarkerValue = 0.01
-                        def indexOfRangeDataWithin = null
+                        def rangeMarkerColor = progressRangeBorderColor ? progressRangeBorderColor : 'white'
+                        def dataMarkerColor = progressDataBorderColor ? progressDataBorderColor : 'black'
+                        def rangeMarkerValue = domainMax * 0.002
+                        def rangeMarkerBorderWidth = 0
                         for (r=0; r < rangeList.size(); r++) {
                             range = rangeList[r]
-                            if (theDataValue >= range.min && theDataValue <= range.max) indexOfRangeDataWithin = r
+                            if (theDataValue >= range.min && theDataValue <= range.max) theDataFillColor = range.color
                         }
                         for (n=0; n < rangeList.size(); n++) {
                             range = rangeList[n]
                             log.debug "Comparing value = ${theDataValue} to range (${range.min}, ${range.max})"
                             if (theDataValue < range.min) {
                                 def rangeData = range.max - range.min - rangeMarkerValue
-                                theDataMaps.add([data: rangeData, color: range.track, label: ""])
+                                theDataMaps.add([data: rangeData, color: range.track, label: "", borderWidth: rangeMarkerBorderWidth])
                                 log.debug "True 1"
                             }
                             else if (theDataValue >= range.min && theDataValue <= range.max) {
-                                dataValueInRange = n
                                 def valueData = theDataValue - range.min - rangeMarkerValue
-                                theDataMaps.add([data: valueData, color: range.fill, label: ""])
-                                theDataMaps.add([data: rangeMarkerValue, color: rangeMarkerColor, label: theDataValue])
+                                theDataFillColor = range.fill
+                                theDataMaps.add([data: valueData, color: theDataFillColor, label: "", borderWidth: rangeMarkerBorderWidth])
+                                theDataMaps.add([data: rangeMarkerValue, color: dataMarkerColor, label: progressDataLabel ? valueData : "", borderWidth: rangeMarkerBorderWidth])
                                 def rangeData = range.max - theDataValue - rangeMarkerValue
-                                theDataMaps.add([data: rangeData, color: range.track, label: ""])
+                                theDataMaps.add([data: rangeData, color: range.track, label: "", borderWidth: rangeMarkerBorderWidth])
                                 log.debug "True 2"
                             }
                             else if (theDataValue > range.max) {
                                 def rangeData = range.max - range.min - rangeMarkerValue
-                                def fillColor = rangeList[indexOfRangeDataWithin]?.fill
-                                theDataMaps.add([data: rangeData, color: fillColor, label: ""])
+                                def fillColor = theDataFillColor
+                                theDataMaps.add([data: rangeData, color: fillColor, label: "", borderWidth: rangeMarkerBorderWidth])
                                 log.debug "True 3"
                             } 
-                            theDataMaps.add([data: rangeMarkerValue, color: rangeMarkerColor, label: range.max])
+                            theDataMaps.add([data: rangeMarkerValue, color: rangeMarkerColor, label: range.max, borderWidth: rangeMarkerBorderWidth])
                         }
                         if (logEnable) log.debug "In eventChartingHandler - datamaps are ${theDataMaps}"
                     }
                     else {
+                        theDataFillColor = staticProgressFillColor
                         theDataMaps.add([data: theDataValue, color: staticProgressFillColor, label: theDataValue])
-                        if (domainMax) theDataMaps.add([data: (domainMax - theDataValue), color: staticProgressTrackColor, label: ""])
-                        else theDataMaps.add([data: (100 - theDataValue), color: staticProgressTrackColor, label: ""])
+                        if (domainMax) theDataMaps.add([data: (domainMax - theDataValue), color: staticProgressTrackColor, label: "", borderWidth: 0])
+                        else theDataMaps.add([data: (100 - theDataValue), color: staticProgressTrackColor, label: "", borderWidth: 0])
                     }
                     
                     buildChart = "{type:'doughnut'"
@@ -1119,7 +1127,8 @@ def eventChartingHandler(eventMap) {
                             if (progressRangeLabelType == "percentage") formattedLabel = "" + Math.round((it.label as Float) / (domainMax as Float) * 100) + "%"
                             else if (progressRangeLabelType == "value") {
                                 if (progressRangeDurationLabel) {
-                                    formattedLabel = formatDuration(it.label, progressRangeValueTimeUnits, progressRangeShowHourTimeUnits, progressRangeShowMinTimeUnits, progressRangeShowSecTimeUnits)
+                                    log.debug "Calling formatDuration for ${it.label} with time units ${progressRangeValueTimeUnits}"
+                                    formattedLabel = formatDuration((it.label as Float), progressRangeValueTimeUnits, progressRangeShowHourTimeUnits, progressRangeShowMinTimeUnits, progressRangeShowSecTimeUnits)
                                 }
                                 else if (progressRangeValueUnits) formattedLabel = it.label + " " + progressRangeValueUnits
                             }
@@ -1130,7 +1139,8 @@ def eventChartingHandler(eventMap) {
 
                     def data = theDataMaps.collect { return it.data }
                     def backgroundColor = theDataMaps.collect { return "'" + it.color + "'" }
-                    def theDataset = "{data:" + data + ", backgroundColor:" + backgroundColor + "}"
+                    def borderWidth = theDataMaps.collect { return it.borderWidth }
+                    def theDataset = "{data:" + data + ", backgroundColor:" + backgroundColor + ", borderWidth:" + borderWidth + "}"
                     def theDatasets = []
                     theDatasets << theDataset
                     buildChart      += "datasets:" + theDatasets + ","
@@ -1155,14 +1165,8 @@ def eventChartingHandler(eventMap) {
                     buildChart += "formatter: (val, ctx) => { return ctx.chart.data.labels[ctx.dataIndex];},"
                     buildChart += "color:'" + progressRangeLabelColor + "',"
                     buildChart += "font: { size:" + progressRangeLabelSize + "},"
-                    buildChart += "}"
-                    buildChart += "}"
-/*
-                    buildChart += ",plugins:{"
-                    
-                    if (hideDataLabel) {
-                        buildChart      += "datalabels: { display: false},"
-                    }
+                    buildChart += "},"
+
                     if (numCenterLabelRows && numCenterLabelRows > 0) {
                         def labelMap = [:]
                         for (labelID=1; labelID <= numCenterLabelRows; labelID++) {
@@ -1172,33 +1176,20 @@ def eventChartingHandler(eventMap) {
                                 def labelColor = null
                                 
                                 if (settings[labelID + "LabelType"] == "title") {
+                                    showTitleInCenter = true
                                     labelText = theChartTitle
                                     if (settings[labelID + "StaticLabelColor"]) labelColor = settings[labelID + "StaticLabelColor"]
                                 }
-                                else if (settings[labelID + "LabelType"] == "percentage" || settings[labelID + "LabelType"] == "sum") {
-                                    def partialSum = 0
-                                    def total = 0
-                                    eventMap.each { it ->  
-                                        (theDev,theAttribute) = it.key.split(";")
-                                        theD = it.value
-                                        theD.each { tdata ->
-                                            if (settings[labelID + "LabelType"] == "percentage" && settings[labelID + "PercentageDataAttributes"].collect{it.capitalize()}.contains(theAttribute)) partialSum += tdata.value
-                                            else if (settings[labelID + "LabelType"] == "sum" && settings[labelID + "SumDataAttributes"].collect{it.capitalize()}.contains(theAttribute)) partialSum += tdata.value
-                                            total += tdata.value
-                                            log.debug "Testing ${theAttribute} with value ${tdata.value}. Selected attributes = ${settings[labelID + "PercentageDataAttributes"].collect{it.capitalize()}}. Partial sum = ${partialSum}. Total is ${total}"
-                                        }
-                                    }
-                                    if (settings[labelID + "LabelType"] == "percentage") {
-                                        labelValue = Math.round((partialSum / total) * 100)
-                                        labelText = labelValue + "%"
-                                    }
-                                    else if (settings[labelID + "LabelType"] == "sum") {
-                                        labelValue = partialSum
-                                        if (settings[labelID + "LabelPrefix"]) labelText += settings[labelID + "LabelPrefix"] + " "
-                                        if (settings[labelID + "DurationLabel"] == true) labelText += formatDuration(labelValue, settings[labelID + "ValueTimeUnits"], settings["showHourTimeUnits" + labelID], settings["showMinTimeUnits" + labelID], settings["showSecTimeUnits" + labelID])
-                                        else labelText += labelValue
-                                        if (settings[labelID + "LabelSuffix"])  labelText += " " + settings[labelID + "LabelSuffix"]
-                                    }
+                                else if (settings[labelID + "LabelType"] == "percentage" && domainMax && domainMax > 0) {
+                                    labelValue = Math.round((theDataValue / domainMax) * 100)
+                                    labelText = labelValue + "%"
+                                }
+                                else if (settings[labelID + "LabelType"] == "value") {
+                                    labelValue = theDataValue
+                                    if (settings[labelID + "LabelPrefix"]) labelText += settings[labelID + "LabelPrefix"] + " "
+                                    if (settings[labelID + "DurationLabel"] == true) labelText += formatDuration(labelValue, settings[labelID + "ValueTimeUnits"], settings["showHourTimeUnits" + labelID], settings["showMinTimeUnits" + labelID], settings["showSecTimeUnits" + labelID])
+                                    else labelText += labelValue
+                                    if (settings[labelID + "LabelSuffix"])  labelText += " " + settings[labelID + "LabelSuffix"]
                                 }
                                 else if (settings[labelID + "LabelType"] == "attribute") {
                                     if (settings[labelID + "LabelPrefix"]) labelText += settings[labelID + "LabelPrefix"] + " "
@@ -1208,41 +1199,20 @@ def eventChartingHandler(eventMap) {
                                     if (settings[labelID + "LabelSuffix"])  labelText += " " + settings[labelID + "LabelSuffix"]
                                 }
 
-                                if (!settings[labelID + "DynamicLabelColor"] && settings[labelID + "StaticLabelColor"] != null) labelColor = settings[labelID + "StaticLabelColor"]
-                                else if (settings[labelID + "DynamicLabelColor"] && settings[labelID + "DynamicLabelColorType"] == "Independent") {
-                                    for (i=1; i <= settings[labelID + "DynamicLabelNumStates"]; i++) {
-                                        def state = settings[labelID + "LabelState${i}"]
-                                        def stateColor = settings[labelID + "LabelState${i}Color"]
-                                        if (labelColor == null && state.contains(":")) {  // state is a range of values
-                                            def stateRangeString = state.split(":")
-                                            def stateRange = []
-                                            stateRange[0] = new BigDecimal(stateRangeString[0]).setScale(0, java.math.RoundingMode.HALF_UP)      
-                                            stateRange[1] = new BigDecimal(stateRangeString[1]).setScale(1, java.math.RoundingMode.HALF_UP)
-                                            if (stateRange[0] != null && stateRange[1] != null) {
-                                                if (labelValue >= stateRange[0] && labelValue <= stateRange[1]) labelColor = stateColor
-                                            }
-                                        }
-                                        else if (labelColor == null && state != null && state.contains(labelValue as String)) labelColor = stateColor
-                                        else if (logEnable) log.debug "Label Value = ${labelValue} of class ${labelValue.class.name}. No matchiung dynamic color state for state ${state} of class ${state.class.name} with color ${stateColor}"
-                                    }                          
-                                }
-                                labelMap[labelID] = [value: labelValue, text: labelText, textSize: settings[labelID + "LabelSize"], color: labelColor, dynamicColorType: settings[labelID + "DynamicLabelColorType"]]
+                                if (settings[labelID + "LabelColorSetting"] == "static" && settings[labelID + "StaticLabelColor"] != null) labelColor = settings[labelID + "StaticLabelColor"]
+                                else if (settings[labelID + "LabelColorSetting"] == "follow") labelColor = theDataFillColor
+                                labelMap[labelID] = [value: labelValue, text: labelText, textSize: settings[labelID + "LabelSize"], color: labelColor]
                             }
                         }
                         
                         buildChart += "doughnutlabel: {"
                         def doughnutLabels = []
-                        log.debug "labelMap = ${labelMap}"
                         labelMap.each { key, labelConfig ->
                             if (labelConfig.text != null) {
-                                log.debug "labelConfig.dynamicColorType = ${labelConfig.dynamicColorType}"
                                 def label = ""
                                 label += "{ text: '" + labelConfig.text + "',"
                                 if (labelConfig.textSize) label += "font: { size: " + labelConfig.textSize + "},"
-                                if (labelConfig.dynamicColorType == "Independent" && labelConfig.color != null) label += "color:'" + labelConfig.color + "',"
-                                else if (labelConfig.dynamicColorType != null && labelConfig.dynamicColorType != "Independent" && labelMap[labelConfig.dynamicColorType as Integer] != null && labelMap[labelConfig.dynamicColorType as Integer].color != null) {
-                                        label += "color:'" + labelMap[labelConfig.dynamicColorType as Integer].color + "',"
-                                }    
+                                label += "color:'" + labelConfig.color + "',"   
                                 label +=   "}"   
                                 doughnutLabels << label
                             }                    
@@ -1252,7 +1222,7 @@ def eventChartingHandler(eventMap) {
                     }
                     
                     buildChart += "}"  // end plugins
-                    */
+                    
                     buildChart += ",legend:{display: false}"
                     buildChart += ",title: {display: " + ((theChartTitle != "" && theChartTitle != null && (showTitleInCenter == null || showTitleInCenter == false) ) ? 'true' : 'false') + ", text: '${theChartTitle}', fontColor: '${labelColor}'}"
 
@@ -1395,6 +1365,7 @@ def eventChartingHandler(eventMap) {
                             def labelColor = null
                             
                             if (settings[labelID + "LabelType"] == "title") {
+                                showTitleInCenter = true
                                 labelText = theChartTitle
                                 if (settings[labelID + "StaticLabelColor"]) labelColor = settings[labelID + "StaticLabelColor"]
                             }
