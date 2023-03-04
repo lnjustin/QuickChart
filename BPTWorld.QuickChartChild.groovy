@@ -326,7 +326,7 @@ def customStateInput(onlyByValue = false, requireRangeValue = false) {
             for (i=1; i <= settings["theAtt"].size(); i++) {
                 def sanitizedAtt = settings["theAtt"][i-1].replaceAll("\\s","").toLowerCase()
                 input "state${sanitizedAtt}Color", "text", title: settings["theAtt"][i-1] + " Color", submitOnChange:false, width: inputWidth
-                if (customizeBar) input "state${sanitizedAtt}BarThickness", "number", title: theAtt[i-1] + " Bar Thickness", defaultValue: 30, submitOnChange:false, width: inputWidth
+                if (customizeBar) input "state${sanitizedAtt}BarThickness", "number", title: settings["theAtt"][i-1] + " Bar Thickness", defaultValue: 30, submitOnChange:false, width: inputWidth
             }
         }  
     }
@@ -714,9 +714,9 @@ def initialize() {
         log.info "${app.label} is Paused"
     } else {
         if(updateTime == "realTime") {
-            if(theDevice && theAtt) {
-                theDevice.each { td ->
-                    theAtt.each { ta ->
+            if(settings["theDevice"] && settings["theAtt"]) {
+                settings["theDevice"].each { td ->
+                    settings["theAtt"].each { ta ->
                         subscribe(td, ta, getEventsHandler)
                     }
                 }
@@ -755,10 +755,10 @@ def getEvents() {
     } else {
         if(logEnable) log.debug "----------------------------------------------- Start Quick Chart -----------------------------------------------"
         if (getChartConfigType(gType) == "pointData") {
-            if (theDevice && theAtt) {
+            if (settings["theDevice"] && settings["theAtt"]) {
                 def eventMap = [:]
-                def theKey = "${theDevice};${theAtt.capitalize()}"
-                def dataPoint = theDevice.currentValue(theAtt)
+                def theKey = "${settings['theDevice']};${settings['theAtt'].capitalize()}"
+                def dataPoint = settings["theDevice"].currentValue(settings["theAtt"])
                 def dataMap =[]
                 dataMap << [date:new Date(),value:dataPoint]
                 eventMap.put(theKey, dataMap)
@@ -767,8 +767,8 @@ def getEvents() {
         }
         else if (getChartConfigType(gType) == "comparisonData") {
             def eventMap = [:]
-            theDevice.each { theD ->
-                theAtt.each { att ->
+            settings["theDevice"].each { theD ->
+                settings["theAtt"].each { att ->
                     theKey = "${theD};${att.capitalize()}"
                     def dataPoint = theD.currentValue(att)
                     def dataMap =[]
@@ -790,11 +790,11 @@ def getEvents() {
                 }
                 if (gType == "stateTiming" || state.isNumericalData == false) days = days - 1 // if building state timing chart, retrieve states for the previous day as well, so that can determine the state at 12:00:00 AM on the first day of the chart
 
-                if(logEnable) log.debug "In getEvents - theDevice: ${theDevice} - ${theAtt} - ${days} (${theDays})"
-                if(theDevice && theAtt) {
+                if(logEnable) log.debug "In getEvents - settings['theDevice']: ${settings['theDevice']} - ${settings['theAtt']} - ${days} (${theDays})"
+                if(settings["theDevice"] && settings["theAtt"]) {
                     eventMap = [:]
-                    theDevice.each { theD ->
-                        theAtt.each { att ->
+                    settings["theDevice"].each { theD ->
+                        settings["theAtt"].each { att ->
                             if(theD.hasAttribute(att)) {
                                 if(reverseMap || gType == "stateTiming") {  // force reverseMap for stateTiming
                                     events = theD.statesSince(att, days, [max: 2000]).collect{[ date:it.date, value:it.value]}.flatten().reverse()
@@ -859,7 +859,7 @@ def getEvents() {
                     dailyMap = [:]
                     eventMap.each { it ->  
                         theKey = it.key
-                        (theDev,theAtt) = theKey.split(";")
+                        (theDev,theAttr) = theKey.split(";")
                         theD = it.value
                         if(logEnable) log.debug "In getEvents - eventMap - theKey: ${theKey} --- theD: ${theD}"
                         dailyList = []; hourlyList = []; sunList = []; monList = []; tueList = []; wedList = []; thuList = []; friList = []; satList = []
@@ -1280,7 +1280,7 @@ def eventChartingHandler(eventMap) {
                                 }
                             } 
                             else if (customStateCriteria == "Device") { 
-                                def sanitizedDevice = theDevice.replaceAll("\\s","").toLowerCase()
+                                def sanitizedDevice = settings["theDevice"].replaceAll("\\s","").toLowerCase()
                                 def stateColor = settings["state${sanitizedDevice}Color"]
                                 if (color == null && stateColor != null) color = stateColor
                             }
@@ -1395,7 +1395,6 @@ def eventChartingHandler(eventMap) {
                                         if (settings[labelID + "LabelType"] == "percentage" && settings[labelID + "PercentageDataAttributes"].collect{it.capitalize()}.contains(theAttribute)) partialSum += tdata.value
                                         else if (settings[labelID + "LabelType"] == "sum" && settings[labelID + "SumDataAttributes"].collect{it.capitalize()}.contains(theAttribute)) partialSum += tdata.value
                                         total += tdata.value
-                                        log.debug "Testing ${theAttribute} with value ${tdata.value}. Selected attributes = ${settings[labelID + "PercentageDataAttributes"].collect{it.capitalize()}}. Partial sum = ${partialSum}. Total is ${total}"
                                     }
                                 }
                                 if (settings[labelID + "LabelType"] == "percentage") {
@@ -1442,10 +1441,8 @@ def eventChartingHandler(eventMap) {
                     
                     buildChart += "doughnutlabel: {"
                     def doughnutLabels = []
-                    log.debug "labelMap = ${labelMap}"
                     labelMap.each { key, labelConfig ->
                         if (labelConfig.text != null) {
-                            log.debug "labelConfig.dynamicColorType = ${labelConfig.dynamicColorType}"
                             def label = ""
                             label += "{ text: '" + labelConfig.text + "',"
                             if (labelConfig.textSize) label += "font: { size: " + labelConfig.textSize + "},"
@@ -1545,7 +1542,7 @@ def eventChartingHandler(eventMap) {
                 z = 0
                 n = 0
                 eventMap.each { it ->  
-                    (theDev,theAtt) = it.key.split(";")
+                    (theDev,theAttribute) = it.key.split(";")
                     theD = it.value
 
                     if(showDevInAtt) {
@@ -1564,20 +1561,20 @@ def eventChartingHandler(eventMap) {
                                     x += 1
                                 }
                                 log.trace "finished: $newDev"
-                                if (showAtt == null || showAtt == true) theAtt = "${newDev} - ${theAtt}"
-                                else theAtt = "${newDev}"
+                                if (showAtt == null || showAtt == true) theAttribute = "${newDev} - ${theAttribute}"
+                                else theAttribute = "${newDev}"
                             }
                         } else {
-                            if (showAtt == null || showAtt == true) theAtt = "${theDev} - ${theAtt}"
-                            else theAtt = "${theDev}"
+                            if (showAtt == null || showAtt == true) theAttribute = "${theDev} - ${theAttribute}"
+                            else theAttribute = "${theDev}"
                         }
                     } else {
-                        theAtt = "${theAtt}"
+                        theAttribute = "${theAttribute}"
                     }                    
-                    theLabels << "'${theAtt}'"
+                    theLabels << "'${theAttribute}'"
                     
                     theDataset = ""
-                    if(logEnable) log.debug "In eventChartingHandler - building dataset for ${theAtt} from data: ${theD}"
+                    if(logEnable) log.debug "In eventChartingHandler - building dataset for ${theAttribute} from data: ${theD}"
                     
                     y=0
                     theD.each { tdata ->
@@ -1788,7 +1785,7 @@ def eventChartingHandler(eventMap) {
             
             if(eventMap) {
                 eventMap.each { it ->  
-                    (theDev,theAtt) = it.key.split(";")
+                    (theDev,theAttribute) = it.key.split(";")
                     theD = it.value
                 
                     if(showDevInAtt) {
@@ -1807,15 +1804,15 @@ def eventChartingHandler(eventMap) {
                                     x += 1
                                 }
                                 log.trace "finished: $newDev"
-                                if (showAtt == null || showAtt == true) theAtt = "${newDev} - ${theAtt}"
-                                else theAtt = "${newDev}"
+                                if (showAtt == null || showAtt == true) theAttribute = "${newDev} - ${theAttribute}"
+                                else theAttribute = "${newDev}"
                             }
                         } else {
-                            if (showAtt == null || showAtt == true) theAtt = "${theDev} - ${theAtt}"
-                            else theAtt = "${theDev}"
+                            if (showAtt == null || showAtt == true) theAttribute = "${theDev} - ${theAttribute}"
+                            else theAttribute = "${theDev}"
                         }
                     } else {
-                        theAtt = "${theAtt}"
+                        theAttribute = "${theAttribute}"
                     }                                                      
                     theD.each { tdata ->        
                         if(logEnable) log.debug "In eventChartingHandler -- tdata.date = ${tdata.date.toString()} --"
@@ -1863,11 +1860,11 @@ def eventChartingHandler(eventMap) {
                         dataPointCount++
                     }
                     if(x==1) {
-                        buildChart = "{type:'${gType}',data:{datasets:[{label:'${theAtt}',data:${theData}"
+                        buildChart = "{type:'${gType}',data:{datasets:[{label:'${theAttribute}',data:${theData}"
                         if ((gType == "bar" || gType == "horizontalBar" || gType == "progressBar") && barWidth != null) buildChart += ", barThickness: ${globalBarThickness}"
                         buildChart += "}"
                     } else {
-                        buildChart += ",{label:'${theAtt}',data:${theData}"
+                        buildChart += ",{label:'${theAttribute}',data:${theData}"
                         if ((gType == "bar" || gType == "horizontalBar" || gType == "progressBar") && barWidth != null) buildChart += ", barThickness: ${globalBarThickness}"
                         buildChart += "}"
                     }
@@ -2029,7 +2026,7 @@ String getTheDevices(){
                 } else {
                     if(logEnable) log.debug "In getTheDevices  - Found data: ${theData}"
                     theData.each { it ->
-                        (theDev, theAtt, theDate, theValue, theStatus) = it.replace("[","").replace("]","").split(";")
+                        (theDev, theAttribute, theDate, theValue, theStatus) = it.replace("[","").replace("]","").split(";")
                         state.isNumericalData = "${theValue}".isNumber()
                         dLabels << theDev
                     }
@@ -2103,8 +2100,8 @@ String readFile(fName){
                         if(logEnable) log.debug "newData from reading file has size = ${newData.size()}. Contents: ${newData}"
                         eventMap = [:]
                         newData.each { it ->
-                            (theDev, theAtt, theDate, theValue, theStatus) = it.replace("[","").replace("]","").split(";")
-                            theKey = "${theDev};${theAtt}"
+                            (theDev, theAttribute, theDate, theValue, theStatus) = it.replace("[","").replace("]","").split(";")
+                            theKey = "${theDev};${theAttribute}"
                             theValue = theValue.trim()
                             state.isNumericalData = "${theValue}".isNumber()
                             newValue = []
