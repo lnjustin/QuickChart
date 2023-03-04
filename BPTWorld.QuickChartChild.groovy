@@ -285,7 +285,7 @@ def seriesDataChartConfig() {
                     
             input "extrapolateDataToCurrentTime", "bool", title: "Last Datapoint persists until Current Time?", submitOnChange:true, width: 12, defaultValue: true                  
             if (!customizeStates) paragraph "<small><b>Using Default State Colors</b><br>Green: active, open, locked, present, on, open, true, dry<br>Red: inactive, closed, unlocked, not present, off, closed, false, wet</small>"
-            customStateInput()
+            if (gType == "stateTiming") customStateInput(true, false)
         }
         if (gType != "stateTiming") input "reverseMap", "bool", title: "Reverse Data Ordering", defaultValue:false, submitOnChange:true
         // force reverseMap for stateTiming
@@ -313,19 +313,19 @@ def customStateInput(onlyByValue = false, requireRangeValue = false) {
                 }
             }      
         }
-        else if (customStateCriteria == "Device") { 
+        else if (customStateCriteria == "Device" && settings["theDevice"]) { 
            paragraph instructions
-            for (i=1; i <= theDevice.size(); i++) {
-                def sanitizedDevice = theDevice[i-1].replaceAll("\\s","").toLowerCase()
-                input "state${sanitizedDevice}Color", "text", title: theDevice[i-1] + "Color", submitOnChange:false, width: inputWidth
-                if (customizeBar) input "state${sanitizedDevice}BarThickness", "number", title: theDevice[i-1] + "Bar Thickness", defaultValue: 30, submitOnChange:false, width: inputWidth
+            for (i=1; i <= settings["theDevice"].size(); i++) {
+                def sanitizedDevice = settings["theDevice"][i-1].replaceAll("\\s","").toLowerCase()
+                input "state${sanitizedDevice}Color", "text", title: settings["theDevice"][i-1] + "Color", submitOnChange:false, width: inputWidth
+                if (customizeBar) input "state${sanitizedDevice}BarThickness", "number", title: settings["theDevice"][i-1] + "Bar Thickness", defaultValue: 30, submitOnChange:false, width: inputWidth
             }
         }
-        else if (customStateCriteria == "Attribute") { 
+        else if (customStateCriteria == "Attribute" && settings["theAtt"]) { 
            paragraph instructions
-            for (i=1; i <= theAtt.size(); i++) {
-                def sanitizedAtt = theAtt[i-1].replaceAll("\\s","").toLowerCase()
-                input "state${sanitizedAtt}Color", "text", title: theAtt[i-1] + " Color", submitOnChange:false, width: inputWidth
+            for (i=1; i <= settings["theAtt"].size(); i++) {
+                def sanitizedAtt = settings["theAtt"][i-1].replaceAll("\\s","").toLowerCase()
+                input "state${sanitizedAtt}Color", "text", title: settings["theAtt"][i-1] + " Color", submitOnChange:false, width: inputWidth
                 if (customizeBar) input "state${sanitizedAtt}BarThickness", "number", title: theAtt[i-1] + " Bar Thickness", defaultValue: 30, submitOnChange:false, width: inputWidth
             }
         }  
@@ -482,11 +482,12 @@ def pointDataChartConfig() {
         section(getFormat("header-green", "${getImage("Blank")}"+" Range Label Configuration")) {
             input "showProgressRangeLabels", "bool", title: "Show Range Labels?", defaultValue:true, submitOnChange:true, width: 12
             if (showProgressRangeLabels == true) {
-                input "progressRangeLabelType", "enum", options: ["value" : "As Value", "percentage" : "As Percentage Progress"], title: "Select Label Type", defaultValue:"As Value", submitOnChange:true, width: 6
+                input "progressRangeLabelType", "enum", options: ["value" : "As Value", "percentage" : "As Percentage Progress"], title: "Select Label Type", defaultValue:"As Value", submitOnChange:true, width: 4
                 if (progressRangeLabelType == "value") {
-                    input "progressRangeValueUnits", "text", title: "Value Units Suffix", submitOnChange: false, width: 6
+                    input "progressRangeDecimalPlaces", "number", title: "Decimal Places", submitOnChange: false, width: 4
+                    input "progressRangeValueUnits", "text", title: "Value Units Suffix", submitOnChange: false, width: 4
                     input "progressRangeDurationLabel", "bool", title: "Display as Duration?", defaultValue:false, submitOnChange:true, width: 12
-                    if (durationLabel) {
+                    if (progressRangeDurationLabel) {
                         input "progressRangeValueTimeUnits", "enum", title: "Select Attribute Value Time Units", options: ["minutes", "seconds"], submitOnChange: false, width: 12
                         input "progressRangeShowHourTimeUnits", "bool", title: "Show Hours if > 0?", submitOnChange: false, width: 4
                         input "progressRangeShowMinTimeUnits", "bool", title: "Show Minutes if > 0?", submitOnChange: false, width: 4
@@ -495,9 +496,10 @@ def pointDataChartConfig() {
                 }
                 input "progressRangeLabelPosition", "enum", title: "Range Label Position", options: ["start" : "Inside", "end" : "Outside"], defaultValue:"Inside", submitOnChange:false, width: 6
                 input "progressRangeLabelPositionOffset", "text", title: "Position Offset (number)", defaultValue:0, width: 6
-                input "progressRangeLabelSize", "number", title: "Range Label Size (number)", width: 4
-                input "progressRangeLabelColor", "text", title: "Range Label Color", width: 4
-                input "progressRangeBorderColor", "text", title: "Range Border Color", submitOnChange: false, width: 4
+                input "progressRangeLabelSize", "number", title: "Range Label Size (number)", width: 3
+                input "progressRangeLabelColor", "text", title: "Range Label Color", width: 3
+                input "progressRangeBorderColor", "text", title: "Range Border Color", submitOnChange: false, width: 3
+                input "progressRangeMaxLabel", "bool", title: "Show Radial Label for Max Value?", submitOnChange: false, width: 3
                 input "progressDataBorderColor", "text", title: "Radial Data Border Color", submitOnChange: false, width: 6
                 input "progressDataLabel", "bool", title: "Show Radial Label for Data?", submitOnChange: false, width: 6
             }
@@ -616,7 +618,7 @@ def radialProgressGaugelabelInput(labelID) {
 
         if (settings[labelID + "LabelType"] != "title") {
             if (settings[labelID + "LabelType"] == "attribute") deviceInput(false, false, false, true, labelID)
-            if (settings[labelID + "LabelType"] == "value") {
+            if (settings[labelID + "LabelType"] == "value" || settings[labelID + "LabelType"] == "attribute") {
                 input labelID + "LabelPrefix", "text", title: "Row " + labelID + " Label Prefix", submitOnChange: false, width: 6
                 input labelID + "LabelSuffix", "text", title: "Row " + labelID + " Label Suffix", submitOnChange: false, width: 6
                 input labelID + "DurationLabel", "bool", title: "Display Row " + labelID + " Label as Duration?", defaultValue:false, submitOnChange:true, width: 12
@@ -647,14 +649,12 @@ def deviceInput(multipleDevices = false, multipleAttributes = false, onlyOneMult
             def attributes = dev.supportedAttributes
             attributes.each { att ->
                 def aType = att.getDataType().toLowerCase()
-                if(logEnable) log.debug "Detected attribute type: ${aType}"
+                attTypes[att.name] = aType
                 if (nonNumberAttributeAllowed == false && aType == "number") {
                     allAttrs << att.name
-                    attTypes[att.name] = att.getDataType()
                 }
                 else if (nonNumberAttributeAllowed == true) {
                     allAttrs << att.name
-                    attTypes[att.name] = att.getDataType()
                 }
             }
         }
@@ -667,12 +667,19 @@ def deviceInput(multipleDevices = false, multipleAttributes = false, onlyOneMult
            
         def anyNonNumber = false
         def anyNumber = false
-        settings[attInputName].each { att ->                        
-            def theType = attTypes[att]
-            if (theType && theType.toLowerCase() == "number") anyNumber = true
+        if (multipleAttributes == false && settings[attInputName]) {
+            def theType = attTypes[settings[attInputName]]
+            if (theType && theType == "number") anyNumber = true
             else anyNonNumber = true
-        }                    
-        if(logEnable) log.debug "Detected attribute type: ${attType}"
+        }
+        else if (multipleAttributes == true && settings[attInputName] && settings[attInputName].size() > 1) {
+            settings[attInputName].each { attName ->                        
+                def theType = attTypes[attName]
+                if (theType && theType == "number") anyNumber = true
+                else anyNonNumber = true
+            }         
+        }           
+        if(logEnable) log.debug "Detected attribute type: ${attTypes}"
         if (anyNumber && anyNonNumber) paragraph "*Warning: Selected attributes are not all numbers or all non-numbers as required*"
         if (nonNumberAttributeAllowed == false && anyNonNumber == true) paragraph "*Warning: Not all selected attributes are non-numbers as required*"
         else if (anyNumber && !anyNonNumber) state.isNumericalData = true
@@ -748,13 +755,15 @@ def getEvents() {
     } else {
         if(logEnable) log.debug "----------------------------------------------- Start Quick Chart -----------------------------------------------"
         if (getChartConfigType(gType) == "pointData") {
-            def eventMap = [:]
-            def theKey = "${theDevice};${theAtt.capitalize()}"
-            def dataPoint = theDevice.currentValue(theAtt)
-            def dataMap =[]
-            dataMap << [date:new Date(),value:dataPoint]
-            eventMap.put(theKey, dataMap)
-            eventChartingHandler(eventMap)
+            if (theDevice && theAtt) {
+                def eventMap = [:]
+                def theKey = "${theDevice};${theAtt.capitalize()}"
+                def dataPoint = theDevice.currentValue(theAtt)
+                def dataMap =[]
+                dataMap << [date:new Date(),value:dataPoint]
+                eventMap.put(theKey, dataMap)
+                eventChartingHandler(eventMap)
+            }
         }
         else if (getChartConfigType(gType) == "comparisonData") {
             def eventMap = [:]
@@ -1086,11 +1095,9 @@ def eventChartingHandler(eventMap) {
                         }
                         for (n=0; n < rangeList.size(); n++) {
                             range = rangeList[n]
-                            log.debug "Comparing value = ${theDataValue} to range (${range.min}, ${range.max})"
                             if (theDataValue < range.min) {
                                 def rangeData = range.max - range.min - rangeMarkerValue
                                 theDataMaps.add([data: rangeData, color: range.track, label: "", borderWidth: rangeMarkerBorderWidth])
-                                log.debug "True 1"
                             }
                             else if (theDataValue >= range.min && theDataValue <= range.max) {
                                 def valueData = theDataValue - range.min - rangeMarkerValue
@@ -1099,15 +1106,15 @@ def eventChartingHandler(eventMap) {
                                 theDataMaps.add([data: rangeMarkerValue, color: dataMarkerColor, label: progressDataLabel ? valueData : "", borderWidth: rangeMarkerBorderWidth])
                                 def rangeData = range.max - theDataValue - rangeMarkerValue
                                 theDataMaps.add([data: rangeData, color: range.track, label: "", borderWidth: rangeMarkerBorderWidth])
-                                log.debug "True 2"
                             }
                             else if (theDataValue > range.max) {
                                 def rangeData = range.max - range.min - rangeMarkerValue
                                 def fillColor = theDataFillColor
                                 theDataMaps.add([data: rangeData, color: fillColor, label: "", borderWidth: rangeMarkerBorderWidth])
-                                log.debug "True 3"
                             } 
-                            theDataMaps.add([data: rangeMarkerValue, color: rangeMarkerColor, label: range.max, borderWidth: rangeMarkerBorderWidth])
+                            def maxLabel = range.max
+                            if (n == rangeList.size() - 1 && !progressRangeMaxLabel) maxLabel = ""
+                            theDataMaps.add([data: rangeMarkerValue, color: rangeMarkerColor, label: maxLabel, borderWidth: rangeMarkerBorderWidth])
                         }
                         if (logEnable) log.debug "In eventChartingHandler - datamaps are ${theDataMaps}"
                     }
@@ -1127,10 +1134,18 @@ def eventChartingHandler(eventMap) {
                             if (progressRangeLabelType == "percentage") formattedLabel = "" + Math.round((it.label as Float) / (domainMax as Float) * 100) + "%"
                             else if (progressRangeLabelType == "value") {
                                 if (progressRangeDurationLabel) {
-                                    log.debug "Calling formatDuration for ${it.label} with time units ${progressRangeValueTimeUnits}"
                                     formattedLabel = formatDuration((it.label as Float), progressRangeValueTimeUnits, progressRangeShowHourTimeUnits, progressRangeShowMinTimeUnits, progressRangeShowSecTimeUnits)
                                 }
-                                else if (progressRangeValueUnits) formattedLabel = it.label + " " + progressRangeValueUnits
+                                else {
+                                    if (logEnable) log.debug "label = ${it.label}. Rounded label = ${(it.label as Float).round(progressRangeDecimalPlaces as Integer)}. With progressRangeDecimalPlaces = ${progressRangeDecimalPlaces} "
+                                    Integer precision = (progressRangeDecimalPlaces != null) ? progressRangeDecimalPlaces as Integer : 0
+                                    def roundedValue = new BigDecimal(it.label).setScale(precision, java.math.RoundingMode.HALF_UP)  
+                                   // formattedLabel = (progressRangeDecimalPlaces != null) ? (it.label as Float).round(progressRangeDecimalPlaces as Integer) : (it.label as Float).round(0) 
+                                    formattedLabel = roundedValue.toString()
+                                    if (progressRangeValueUnits) {
+                                        formattedLabel += " " + progressRangeValueUnits
+                                    }
+                                }
                             }
                         }
                         return "'" + formattedLabel + "'"
@@ -1172,7 +1187,7 @@ def eventChartingHandler(eventMap) {
                         for (labelID=1; labelID <= numCenterLabelRows; labelID++) {
                             if (settings[labelID + "LabelType"] && settings[labelID + "LabelType"] != "none") {
                                 def labelValue = null
-                                def labelText = ""
+                                String labelText = ""
                                 def labelColor = null
                                 
                                 if (settings[labelID + "LabelType"] == "title") {
@@ -1201,6 +1216,7 @@ def eventChartingHandler(eventMap) {
 
                                 if (settings[labelID + "LabelColorSetting"] == "static" && settings[labelID + "StaticLabelColor"] != null) labelColor = settings[labelID + "StaticLabelColor"]
                                 else if (settings[labelID + "LabelColorSetting"] == "follow") labelColor = theDataFillColor
+
                                 labelMap[labelID] = [value: labelValue, text: labelText, textSize: settings[labelID + "LabelSize"], color: labelColor]
                             }
                         }
@@ -1208,7 +1224,7 @@ def eventChartingHandler(eventMap) {
                         buildChart += "doughnutlabel: {"
                         def doughnutLabels = []
                         labelMap.each { key, labelConfig ->
-                            if (labelConfig.text != null) {
+                            if (labelConfig.text != "") {
                                 def label = ""
                                 label += "{ text: '" + labelConfig.text + "',"
                                 if (labelConfig.textSize) label += "font: { size: " + labelConfig.textSize + "},"
