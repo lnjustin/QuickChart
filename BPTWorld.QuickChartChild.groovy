@@ -717,6 +717,7 @@ def initialize() {
             def isDeviceCollection = settings["theDevice"] instanceof Collection
             def isAttributeCollection = settings["theAtt"] instanceof Collection
             if (isDeviceCollection && isAttributeCollection) {
+                if (logEnable) log.debug "Both device and attribute are collections"
                 settings["theDevice"].each { td ->
                     settings["theAtt"].each { ta ->
                         subscribe(td, ta, getEventsHandler)
@@ -724,16 +725,19 @@ def initialize() {
                 }
             }
             else if (!isDeviceCollection && isAttributeCollection) {
+                if (logEnable) log.debug "Only device is a collection"
                 td = settings["theDevice"]
                 settings["theAtt"].each { ta ->
                     subscribe(td, ta, getEventsHandler)
                 }
             }
              else if (!isDeviceCollection && !isAttributeCollection) {
+                if (logEnable) log.debug "Only attribute is a collection"
                 td = settings["theDevice"]
                 ta = settings["theAtt"]
                 subscribe(td, ta, getEventsHandler)
-            }           
+            }         
+            else log.warn "No events subscribed to. isDeviceCollection = ${isDeviceCollection}. isAttributeCollection = ${isAttributeCollection}"  
         } else if(updateTime == "5min") {
             runEvery5Minutes(getEventsHandler)
         } else if(updateTime == "10min") {
