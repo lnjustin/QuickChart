@@ -1435,7 +1435,7 @@ def eventChartingHandler(eventMap) {
                                     else if (logEnable) log.debug "Label Value = ${labelValue} of class ${labelValue.class.name}. No matchiung dynamic color state for state ${state} of class ${state.class.name} with color ${stateColor}"
                                 }                          
                             }
-                            labelMap[labelID] = [value: labelValue, text: labelText, textSize: settings[labelID + "LabelSize"], color: labelColor, dynamicColorType: settings[labelID + "DynamicLabelColorType"]]
+                            labelMap[labelID] = [value: labelValue, text: labelText, textSize: settings[labelID + "LabelSize"], color: labelColor, labelType: settings[labelID + "LabelType"], dynamicColorType: settings[labelID + "DynamicLabelColorType"]]
                         }
                     }
                     
@@ -1446,7 +1446,7 @@ def eventChartingHandler(eventMap) {
                             def label = ""
                             label += "{ text: '" + labelConfig.text + "',"
                             if (labelConfig.textSize) label += "font: { size: " + labelConfig.textSize + "},"
-                            if (labelConfig.dynamicColorType == "Independent" && labelConfig.color != null) label += "color:'" + labelConfig.color + "',"
+                            if ((labelConfig.labelType == "title" || labelConfig.dynamicColorType == "Independent") && labelConfig.color != null) label += "color:'" + labelConfig.color + "',"
                             else if (labelConfig.dynamicColorType != null && labelConfig.dynamicColorType != "Independent" && labelMap[labelConfig.dynamicColorType as Integer] != null && labelMap[labelConfig.dynamicColorType as Integer].color != null) {
                                     label += "color:'" + labelMap[labelConfig.dynamicColorType as Integer].color + "',"
                             }    
