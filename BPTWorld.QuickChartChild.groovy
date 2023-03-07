@@ -713,14 +713,27 @@ def initialize() {
     if(pauseApp) {
         log.info "${app.label} is Paused"
     } else {
-        if(updateTime == "realTime") {
-            if(settings["theDevice"] && settings["theAtt"]) {
+        if(updateTime == "realTime" && settings["theDevice"] && settings["theAtt"]) {
+            def isDeviceCollection = settings["theDevice"] instanceof Collection
+            def isAttributeCollection = settings["theAtt"] instanceof Collection
+            if (isDeviceCollection && isAttributeCollection) {
                 settings["theDevice"].each { td ->
                     settings["theAtt"].each { ta ->
                         subscribe(td, ta, getEventsHandler)
                     }
                 }
             }
+            else if (!isDeviceCollection && isAttributeCollection) {
+                td = settings["theDevice"]
+                settings["theAtt"].each { ta ->
+                    subscribe(td, ta, getEventsHandler)
+                }
+            }
+             else if (!isDeviceCollection && !isAttributeCollection) {
+                td = settings["theDevice"]
+                ta = settings["theAtt"]
+                subscribe(td, ta, getEventsHandler)
+            }           
         } else if(updateTime == "5min") {
             runEvery5Minutes(getEventsHandler)
         } else if(updateTime == "10min") {
