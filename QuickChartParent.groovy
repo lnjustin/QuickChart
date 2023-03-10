@@ -42,7 +42,7 @@ import groovy.time.TimeCategory
 import java.text.SimpleDateFormat
 
 def setVersion(){
-    state.name = null
+    state.name = "Quick Chart Parent"
 }
 
 definition(
@@ -281,18 +281,10 @@ def display(data) {
     } else {
         headerName = "${state.name} - ${theName}"
     }
-    section() {
-        paragraph "<h2 style='color:#1A77C9;font-weight: bold'>${headerName}</h2><div style='color:#1A77C9'>Announcement: I'll be taking an extended break from coding. I'm not going anywhere and all code will still be available. I just won't be updating anything for a while. Thanks!</div>"
-        
-        //<a href='https://community.hubitat.com/t/release-bundle-manager-the-only-place-to-find-bptworld-bundles-find-install-and-update-bundles-quickly-and-easily/94567/295' target='_blank'>Bundle Manager</a>!
-        
-        paragraph getFormat("line")
-    }
 }
 
 def display2() {
     setVersion()
-    setLibraryVersion()
     section() {
         if(state.appType == "parent") { href "removePage", title:"${getImage("optionsRed")} <b>Remove App and all child apps</b>", description:"" }
         paragraph getFormat("line")
@@ -301,7 +293,6 @@ def display2() {
         } else {
             bMes = "<div style='color:#1A77C9;text-align:center;font-size:20px;font-weight:bold'>${state.name}"
         }
-        bMes += "<br><small>Library Ver: ${state.libraryVersion}</small>"
         bMes += "</div>"
         paragraph "${bMes}"
         paragraph "<div style='color:#1A77C9;text-align:center'>BPTWorld<br>Donations are never necessary but always appreciated!<br><a href='https://paypal.me/bptworld' target='_blank'><img src='https://raw.githubusercontent.com/bptworld/Hubitat/master/resources/images/pp.png'></a></div>"
