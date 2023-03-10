@@ -1,0 +1,45 @@
+{
+  "packageName": "Quick Chart",
+  "author": "lnjustin",
+  "version": "0.5.0",
+  "minimumHEVersion": "2.1.9",
+  "dateReleased": "2023-03-09",
+  "apps": [
+    {
+      "id": "ff7a7371-886a-46ba-800c-2eb5460070d3",
+      "name": "Quick Chart",
+      "namespace": "BPTWorld",
+      "location": "https://raw.githubusercontent.com/lnjustin/QuickChart/main/QuickChartParent.groovy",
+      "required": true,
+      "oauth": true,
+      "primary": false
+    },
+    {
+      "id": "3a41e44c-1b51-43d7-b4d2-45f53a74cc3b",
+      "name": "Quick Chart Child",
+      "namespace": "BPTWorld",
+      "location": "https://raw.githubusercontent.com/lnjustin/QuickChart/main/QuickChartChild.groovy",
+      "required": true,
+      "oauth": true,
+      "primary": false
+    },
+    {
+      "id": "e3c22c82-0705-4640-8737-b6918db2fe72",
+      "name": "Quick Chart Data Collector Child",
+      "namespace": "BPTWorld",
+      "location": "https://raw.githubusercontent.com/lnjustin/QuickChart/main/QuickChartDataCollectorChild.groovy",
+      "required": true,
+      "oauth": false,
+      "primary": false
+    }
+  ],
+  "drivers": [
+    {
+      "id": "813d665b-7d68-4ecf-bd1a-3da4eccc02ef",
+      "name": "Quick Chart Driver",
+      "namespace": "BPTWorld",
+      "location": "https://raw.githubusercontent.com/lnjustin/QuickChart/main/QuickChartDriver.groovy",
+      "required": true
+    }
+  ]
+}
