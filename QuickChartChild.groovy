@@ -1107,7 +1107,7 @@ def eventChartingHandler(eventMap) {
                         def rangeMarkerBorderWidth = 0
                         for (r=0; r < rangeList.size(); r++) {
                             range = rangeList[r]
-                            if (theDataValue >= range.min && theDataValue <= range.max) theDataFillColor = range.color
+                            if (theDataValue >= range.min && theDataValue <= range.max) theDataFillColor = range.fill
                         }
                         for (n=0; n < rangeList.size(); n++) {
                             range = rangeList[n]
@@ -1153,7 +1153,7 @@ def eventChartingHandler(eventMap) {
                                     formattedLabel = formatDuration((it.label as Float), progressRangeValueTimeUnits, progressRangeShowHourTimeUnits, progressRangeShowMinTimeUnits, progressRangeShowSecTimeUnits)
                                 }
                                 else {
-                                    if (logEnable) log.debug "label = ${it.label}. Rounded label = ${(it.label as Float).round(progressRangeDecimalPlaces as Integer)}. With progressRangeDecimalPlaces = ${progressRangeDecimalPlaces} "
+                                  //  if (logEnable) log.debug "label = ${it.label}. Rounded label = ${(it.label as Float).round(progressRangeDecimalPlaces as Integer)}. With progressRangeDecimalPlaces = ${progressRangeDecimalPlaces} "
                                     Integer precision = (progressRangeDecimalPlaces != null) ? progressRangeDecimalPlaces as Integer : 0
                                     def roundedValue = new BigDecimal(it.label).setScale(precision, java.math.RoundingMode.HALF_UP)  
                                    // formattedLabel = (progressRangeDecimalPlaces != null) ? (it.label as Float).round(progressRangeDecimalPlaces as Integer) : (it.label as Float).round(0) 
