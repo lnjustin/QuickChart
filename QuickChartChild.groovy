@@ -589,7 +589,7 @@ def labelInput(labelID) {
                 for (j=1; j <= numCenterLabelRows; j++) {
                     if (j != labelID) colorRuleOptions << ["${j}" : "Follows Row ${j}"]
                 }
-                input labelID + "DynamicLabelColorType", "enum", title: "Rules For Row " + labelID + " Label Dynamic Color", options: colorRuleOptions, defaultValue: "Independent", submitOnChange: true, width: 6
+                input labelID + "DynamicLabelColorType", "enum", title: "Rules For Row " + labelID + " Label Dynamic Color", options: colorRuleOptions, submitOnChange: true, width: 6
                 if (settings[labelID + "DynamicLabelColorType"] == "Independent") {
                     input labelID + "DynamicLabelNumStates", "number", title: "How many states?", defaultValue:2, submitOnChange:true, width: 6
                     paragraph "<small> States can be defined as a single text value, a single numeric value, or a range of numeric values. Define a range of numeric values as MIN:MAX (example: 1:50). Ranges are inclusive of both MIN and MAX. </small>"
