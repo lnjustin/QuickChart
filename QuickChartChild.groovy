@@ -1148,7 +1148,7 @@ def eventChartingHandler(eventMap) {
                         def formattedLabel = ""
                         if (it.label != "") {
                             if (progressRangeLabelType == "percentage") formattedLabel = "" + Math.round((it.label as Float) / (domainMax as Float) * 100) + "%"
-                            else if (progressRangeLabelType == "value") {
+                            else if (progressRangeLabelType == "value" != null) {
                                 if (progressRangeDurationLabel) {
                                     formattedLabel = formatDuration((it.label as Float), progressRangeValueTimeUnits, progressRangeShowHourTimeUnits, progressRangeShowMinTimeUnits, progressRangeShowSecTimeUnits)
                                 }
@@ -2201,6 +2201,11 @@ def formatDuration(value, valueUnits, showHours, showMinutes, showSeconds) {
     if (showHours && hours > 0) formattedValue += hours + 'h'
     if (showMinutes && mins > 0) formattedValue += mins + 'm'
     if (showSeconds && secs > 0) formattedValue += secs + 's'
+    if (value == 0) {
+        if (showSeconds) formattedValue ='0s'    
+        else if (showMinutes) formattedValue ='0m'
+        else if (showHours) formattedValue = '0h'
+    }
     return formattedValue
 }
 
