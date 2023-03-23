@@ -33,8 +33,9 @@
  * ------------------------------------------------------------------------------------------------------------------------------
  *
  *  Changes:
- *  0.5.0 - 02/22/22 - Reorganize User Interface to be more flexible for other chart types; Added support for radial gauge chart and progress bar; Added user-defined chart height; Define custom states with numeric ranges; separate from library
- *  0.4.3 - 02/17/22 - Bug fixes; X-Axis origin; Persistent last data point optional; Update chart with device attribute value; Custom bar thickness
+ *  0.5.1-3 - 03/22/23 - bug fixes
+ *  0.5.0 - 02/22/23 - Reorganize User Interface to be more flexible for other chart types; Added support for radial gauge chart and progress bar; Added user-defined chart height; Define custom states with numeric ranges; separate from library
+ *  0.4.3 - 02/17/23 - Bug fixes; X-Axis origin; Persistent last data point optional; Update chart with device attribute value; Custom bar thickness
  *  0.4.2 - 12/01/22 - Fixes a minor bug
  *  0.4.1 - 11/02/22 - Added Bar Chart Width Configurabiity; Improved Legend Configurability - @JustinL
  *  0.4.0 - 11/01/22 - Bug Fix - @JustinL
@@ -774,7 +775,7 @@ def getEvents() {
             if (settings["theDevice"] && settings["theAtt"]) {
                 def eventMap = [:]
                 def theKey = "${settings['theDevice']};${settings['theAtt'].capitalize()}"
-                def dataPoint = settings["theDevice"].currentValue(settings["theAtt"])
+                def dataPoint = settings["theDevice"].currentValue(settings["theAtt"], true)
                 def dataMap =[]
                 dataMap << [date:new Date(),value:dataPoint]
                 eventMap.put(theKey, dataMap)
@@ -1224,7 +1225,7 @@ def eventChartingHandler(eventMap) {
                                 }
                                 else if (settings[labelID + "LabelType"] == "attribute") {
                                     if (settings[labelID + "LabelPrefix"]) labelText += settings[labelID + "LabelPrefix"] + " "
-                                    labelValue = settings["theDevice" + labelID]?.currentValue(settings["theAtt" + labelID])
+                                    labelValue = settings["theDevice" + labelID]?.currentValue(settings["theAtt" + labelID], true)
                                     if (settings[labelID + "DurationLabel"] == true) labelText += formatDuration(labelValue, settings[labelID + "ValueTimeUnits"], settings["showHourTimeUnits" + labelID], settings["showMinTimeUnits" + labelID], settings["showSecTimeUnits" + labelID])
                                     else labelText += labelValue
                                     if (settings[labelID + "LabelSuffix"])  labelText += " " + settings[labelID + "LabelSuffix"]
@@ -1427,7 +1428,7 @@ def eventChartingHandler(eventMap) {
                             }
                             else if (settings[labelID + "LabelType"] == "attribute") {
                                 if (settings[labelID + "LabelPrefix"]) labelText += settings[labelID + "LabelPrefix"] + " "
-                                labelValue = settings["theDevice" + labelID]?.currentValue(settings["theAtt" + labelID])
+                                labelValue = settings["theDevice" + labelID]?.currentValue(settings["theAtt" + labelID], true)
                                 if (settings[labelID + "DurationLabel"] == true) labelText += formatDuration(labelValue, settings[labelID + "ValueTimeUnits"], settings["showHourTimeUnits" + labelID], settings["showMinTimeUnits" + labelID], settings["showSecTimeUnits" + labelID])
                                 else labelText += labelValue
                                 if (settings[labelID + "LabelSuffix"])  labelText += " " + settings[labelID + "LabelSuffix"]
@@ -1915,7 +1916,7 @@ def eventChartingHandler(eventMap) {
                     if (isStaticLineActive && isDynamicLineActive) buildChart += ","
                     if (isDynamicLineActive) {
                         def dynamicValue = null
-                        if (dynamicLineSource == "Device Attribute Value" && dynamicLineDevice != null && dynamicLineAttribute != null) dynamicValue = dynamicLineDevice.currentValue(dynamicLineAttribute)
+                        if (dynamicLineSource == "Device Attribute Value" && dynamicLineDevice != null && dynamicLineAttribute != null) dynamicValue = dynamicLineDevice.currentValue(dynamicLineAttribute, true)
                         else if (dynamicLineSource == "Charted Value Average" && dataPointCount > 0) dynamicValue = dataTotal / dataPointCount
                         buildChart += "{type:'line', mode:'horizontal', scaleID: 'y-axis-0', value:${dynamicValue}, borderWidth: ${dynamicLineWidth != null ? dynamicLineWidth : 1}, borderColor:'${dynamicLineColor != null ? dynamicLineColor: "blue"}'${dynamicLineLabel != null ? ", label: {enabled:true, content: '${dynamicLineLabel}'}" : ""}}"
                     }
@@ -2337,7 +2338,7 @@ def checkEnableHandler() {
     if(disableSwitch) { 
         if(logEnable) log.debug "In checkEnableHandler - disableSwitch: ${disableSwitch}"
         disableSwitch.each { it ->
-            theStatus = it.currentValue("switch")
+            theStatus = it.currentValue("switch", true)
             if(theStatus == "on") { state.eSwitch = true }
         }
         if(logEnable) log.debug "In checkEnableHandler - eSwitch: ${state.eSwitch}"
