@@ -67,6 +67,7 @@ definition(
     description: "Chart your data, quickly and easily. Display your charts in any dashboard.",
     category: "Convenience",
 	parent: "BPTWorld:Quick Chart",
+    oauth: [displayName: "Quick Chart Child", displayLink: ""],
     iconUrl: "",
     iconX2Url: "",
     iconX3Url: "",
@@ -75,6 +76,10 @@ definition(
 
 preferences {
     page(name: "pageConfig")
+}
+
+mappings { 
+    path("/fetchChart") { action: [ GET: "fetchChart"] }
 }
 
 def pageConfig() {
@@ -753,7 +758,20 @@ def initialize() {
         } else if(updateTime == "attribute") {
             subscribe(updateDevice, updateAttribute, updateAttributeHandler)
         }
+
+/*
+        if (gType == "radialProgressGauge") {
+            if (numCenterLabelRows && numCenterLabelRows > 0) {
+                for (labelID=1; labelID <= numCenterLabelRows; labelID++) {
+                    if (settings[labelID + "LabelType"] && settings[labelID + "LabelType"] == "attribute") {
+                        subscribe(settings["theDevice" + labelID], settings["theAtt" + labelID], getEventsHandler)
+                    }
+                }
+            }
+        }
+        */
     }
+    
 } 
 
 def updateAttributeHandler(evt) {
@@ -762,7 +780,7 @@ def updateAttributeHandler(evt) {
 }
 
 def getEventsHandler(evt) {
-    getEvents()
+    runIn(1,"getEvents")  // give data a chance to update when chart uses multiple attributes, e.g., for radialProgressGauge center labels that use device attribute values
 }
 
 def getEvents() {
