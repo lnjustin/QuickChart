@@ -33,6 +33,7 @@
  * ------------------------------------------------------------------------------------------------------------------------------
  *
  *  Changes:
+ *  0.5.2 -06/16/23 bug fixes
  *  0.5.1-3 - 03/22/23 - bug fixes
  *  0.5.0 - 02/22/23 - Reorganize User Interface to be more flexible for other chart types; Added support for radial gauge chart and progress bar; Added user-defined chart height; Define custom states with numeric ranges; separate from library
  *  0.4.3 - 02/17/23 - Bug fixes; X-Axis origin; Persistent last data point optional; Update chart with device attribute value; Custom bar thickness
@@ -67,7 +68,6 @@ definition(
     description: "Chart your data, quickly and easily. Display your charts in any dashboard.",
     category: "Convenience",
 	parent: "BPTWorld:Quick Chart",
-    oauth: [displayName: "Quick Chart Child", displayLink: ""],
     iconUrl: "",
     iconX2Url: "",
     iconX3Url: "",
@@ -76,10 +76,6 @@ definition(
 
 preferences {
     page(name: "pageConfig")
-}
-
-mappings { 
-    path("/fetchChart") { action: [ GET: "fetchChart"] }
 }
 
 def pageConfig() {
@@ -1139,7 +1135,7 @@ def eventChartingHandler(eventMap) {
                                 theDataFillColor = range.fill
                                 theDataMaps.add([data: valueData, color: theDataFillColor, label: "", borderWidth: rangeMarkerBorderWidth])
                                 theDataMaps.add([data: rangeMarkerValue, color: dataMarkerColor, label: progressDataLabel ? valueData : "", borderWidth: rangeMarkerBorderWidth])
-                                def rangeData = range.max - theDataValue - rangeMarkerValue
+                                def rangeData = range.max - (theDataValue as BigDecimal) - rangeMarkerValue
                                 theDataMaps.add([data: rangeData, color: range.track, label: "", borderWidth: rangeMarkerBorderWidth])
                             }
                             else if (theDataValue > range.max) {
@@ -1231,20 +1227,20 @@ def eventChartingHandler(eventMap) {
                                     if (settings[labelID + "StaticLabelColor"]) labelColor = settings[labelID + "StaticLabelColor"]
                                 }
                                 else if (settings[labelID + "LabelType"] == "percentage" && domainMax && domainMax > 0) {
-                                    labelValue = Math.round((theDataValue / domainMax) * 100)
+                                    labelValue = Math.round(((theDataValue as BigDecimal) / domainMax) * 100)
                                     labelText = labelValue + "%"
                                 }
                                 else if (settings[labelID + "LabelType"] == "value") {
                                     labelValue = theDataValue
                                     if (settings[labelID + "LabelPrefix"]) labelText += settings[labelID + "LabelPrefix"] + " "
-                                    if (settings[labelID + "DurationLabel"] == true) labelText += formatDuration(labelValue, settings[labelID + "ValueTimeUnits"], settings["showHourTimeUnits" + labelID], settings["showMinTimeUnits" + labelID], settings["showSecTimeUnits" + labelID])
+                                    if (settings[labelID + "DurationLabel"] == true) labelText += formatDuration((labelValue as BigDecimal), settings[labelID + "ValueTimeUnits"], settings["showHourTimeUnits" + labelID], settings["showMinTimeUnits" + labelID], settings["showSecTimeUnits" + labelID])
                                     else labelText += labelValue
                                     if (settings[labelID + "LabelSuffix"])  labelText += " " + settings[labelID + "LabelSuffix"]
                                 }
                                 else if (settings[labelID + "LabelType"] == "attribute") {
                                     if (settings[labelID + "LabelPrefix"]) labelText += settings[labelID + "LabelPrefix"] + " "
                                     labelValue = settings["theDevice" + labelID]?.currentValue(settings["theAtt" + labelID], true)
-                                    if (settings[labelID + "DurationLabel"] == true) labelText += formatDuration(labelValue, settings[labelID + "ValueTimeUnits"], settings["showHourTimeUnits" + labelID], settings["showMinTimeUnits" + labelID], settings["showSecTimeUnits" + labelID])
+                                    if (settings[labelID + "DurationLabel"] == true) labelText += formatDuration((labelValue as BigDecimal), settings[labelID + "ValueTimeUnits"], settings["showHourTimeUnits" + labelID], settings["showMinTimeUnits" + labelID], settings["showSecTimeUnits" + labelID])
                                     else labelText += labelValue
                                     if (settings[labelID + "LabelSuffix"])  labelText += " " + settings[labelID + "LabelSuffix"]
                                 }
@@ -1439,7 +1435,7 @@ def eventChartingHandler(eventMap) {
                                 else if (settings[labelID + "LabelType"] == "sum") {
                                     labelValue = partialSum
                                     if (settings[labelID + "LabelPrefix"]) labelText += settings[labelID + "LabelPrefix"] + " "
-                                    if (settings[labelID + "DurationLabel"] == true) labelText += formatDuration(labelValue, settings[labelID + "ValueTimeUnits"], settings["showHourTimeUnits" + labelID], settings["showMinTimeUnits" + labelID], settings["showSecTimeUnits" + labelID])
+                                    if (settings[labelID + "DurationLabel"] == true) labelText += formatDuration((labelValue as BigDecimal), settings[labelID + "ValueTimeUnits"], settings["showHourTimeUnits" + labelID], settings["showMinTimeUnits" + labelID], settings["showSecTimeUnits" + labelID])
                                     else labelText += labelValue
                                     if (settings[labelID + "LabelSuffix"])  labelText += " " + settings[labelID + "LabelSuffix"]
                                 }
@@ -1447,7 +1443,7 @@ def eventChartingHandler(eventMap) {
                             else if (settings[labelID + "LabelType"] == "attribute") {
                                 if (settings[labelID + "LabelPrefix"]) labelText += settings[labelID + "LabelPrefix"] + " "
                                 labelValue = settings["theDevice" + labelID]?.currentValue(settings["theAtt" + labelID], true)
-                                if (settings[labelID + "DurationLabel"] == true) labelText += formatDuration(labelValue, settings[labelID + "ValueTimeUnits"], settings["showHourTimeUnits" + labelID], settings["showMinTimeUnits" + labelID], settings["showSecTimeUnits" + labelID])
+                                if (settings[labelID + "DurationLabel"] == true) labelText += formatDuration((labelValue as BigDecimal), settings[labelID + "ValueTimeUnits"], settings["showHourTimeUnits" + labelID], settings["showMinTimeUnits" + labelID], settings["showSecTimeUnits" + labelID])
                                 else labelText += labelValue
                                 if (settings[labelID + "LabelSuffix"])  labelText += " " + settings[labelID + "LabelSuffix"]
                             }
