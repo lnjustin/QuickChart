@@ -5,6 +5,7 @@
  *  Chart your data, quickly and easily. Display your charts in any dashboard.
  *
  *  Copyright 2022-2023 Bryan Turcotte (@bptworld)
+ *  Copyright 2024 @lnjustin
  * 
  *  This App is free. If you like and use this app, please be sure to mention it on the Hubitat forums! Thanks.
  *
@@ -33,6 +34,7 @@
  * ------------------------------------------------------------------------------------------------------------------------------
  *
  *  Changes:
+ *  1.0.0 - 05/19/2024 - official release; separate inputs for periodic updates, device attribute updates, and other chart sync
  *  0.5.2 -06/16/23 bug fixes
  *  0.5.1-3 - 03/22/23 - bug fixes
  *  0.5.0 - 02/22/23 - Reorganize User Interface to be more flexible for other chart types; Added support for radial gauge chart and progress bar; Added user-defined chart height; Define custom states with numeric ranges; separate from library
@@ -53,7 +55,7 @@ import java.text.SimpleDateFormat
 
 def setVersion(){
     state.name = "Quick Chart"
-	state.version = "0.5.0"
+	state.version = "1.0.0"
 }
 
 def syncVersion(evt){
@@ -64,7 +66,7 @@ def syncVersion(evt){
 definition(
     name: "Quick Chart Child",
     namespace: "BPTWorld",
-    author: "Bryan Turcotte, Justin Leonard",
+    author: "Bryan Turcotte, lnjustin",
     description: "Chart your data, quickly and easily. Display your charts in any dashboard.",
     category: "Convenience",
 	parent: "BPTWorld:Quick Chart",
@@ -117,7 +119,7 @@ def pageConfig() {
             }
 
             def updateTimeOptions = [
-                ["manual":"Manual"],
+                ["manual":"No Periodic Update"],
                 ["5min":"Every 5 Minutes"],
                 ["10min":"Every 10 Minutes"],
                 ["15min":"Every 15 Minutes"],
@@ -125,10 +127,11 @@ def pageConfig() {
                 ["1hour":"Every 1 Hour"],
                 ["3hour":"Every 3 Hours"],
             ]
-            if (dataSource || chartConfigType == "pointData") updateTimeOptions.add(["realTime":"Real Time"])
-            else updateTimeOptions.add(["attribute":"With Device Attribute Value"])
-            input "updateTime", "enum", title: "When to Update", options: updateTimeOptions, defaultValue:"manual", submitOnChange:true, width: 4 
-            if (updateTime == "attribute") {
+            input "updateTime", "enum", title: "Periodic Update", options: updateTimeOptions, defaultValue:"manual", submitOnChange:true, width: 4 
+
+            input "updateWithAttribute", "bool", title: "Update with Device Attribute Value", defaultValue:false, submitOnChange:true, width: 12 
+
+            if (!(dataSource || chartConfigType == "pointData") && updateWithAttribute == true) {
                 input "updateDevice", "capability.*", title: "Select Update Device", multiple:false, submitOnChange:true, width: 12, required: true
                 if (updateDevice) {
                     allAttrs = []
@@ -142,6 +145,9 @@ def pageConfig() {
                 if (updateDevice && updateAttribute) input "updateAttributeCondition", "enum", title: "Update When Attribute...", options: ["value" : "Change To Certain Value", "changes" : "Changes to ANY Value"], defaultValue:"changes", submitOnChange:true, width: 4, required: true
                 if (updateDevice && updateAttribute && updateAttributeCondition == "value") input "updateAttributeValue", "text", title: "Attribute Value that triggers chart update", submitOnChange:false, width: 4, required: true
             }
+
+             input "updateWithOtherCharts", "bool", title: "Update when other chart(s) update", defaultValue:false, submitOnChange:true, width: 6 
+            if (updateWithOtherCharts == true) input "updateCharts", "device.QuickChartDriver", title: "Select Other Chart(s)", multiple:true, submitOnChange:false, width: 12, required: true
         }
 
         if (chartConfigType == "pointData") pointDataChartConfig() 
@@ -714,32 +720,7 @@ def initialize() {
     if(pauseApp) {
         log.info "${app.label} is Paused"
     } else {
-        if(updateTime == "realTime" && settings["theDevice"] && settings["theAtt"]) {
-            def isDeviceCollection = settings["theDevice"] instanceof Collection
-            def isAttributeCollection = settings["theAtt"] instanceof Collection
-            if (isDeviceCollection && isAttributeCollection) {
-                if (logEnable) log.debug "Both device and attribute are collections"
-                settings["theDevice"].each { td ->
-                    settings["theAtt"].each { ta ->
-                        subscribe(td, ta, getEventsHandler)
-                    }
-                }
-            }
-            else if (!isDeviceCollection && isAttributeCollection) {
-                if (logEnable) log.debug "Only device is a collection"
-                td = settings["theDevice"]
-                settings["theAtt"].each { ta ->
-                    subscribe(td, ta, getEventsHandler)
-                }
-            }
-             else if (!isDeviceCollection && !isAttributeCollection) {
-                if (logEnable) log.debug "Only attribute is a collection"
-                td = settings["theDevice"]
-                ta = settings["theAtt"]
-                subscribe(td, ta, getEventsHandler)
-            }         
-            else log.warn "No events subscribed to. isDeviceCollection = ${isDeviceCollection}. isAttributeCollection = ${isAttributeCollection}"  
-        } else if(updateTime == "5min") {
+        if(updateTime == "5min") {
             runEvery5Minutes(getEventsHandler)
         } else if(updateTime == "10min") {
             runEvery10Minutes(getEventsHandler) 
@@ -751,10 +732,46 @@ def initialize() {
             runEvery1Hour(getEventsHandler)
         } else if(updateTime == "3hour") {
             runEvery3Hours(getEventsHandler)
-        } else if(updateTime == "attribute") {
-            subscribe(updateDevice, updateAttribute, updateAttributeHandler)
+        } 
+        
+        if(updateWithAttribute == true) {
+
+            if ((dataSource || chartConfigType == "pointData") && settings["theDevice"] && settings["theAtt"]) {
+                def isDeviceCollection = settings["theDevice"] instanceof Collection
+                def isAttributeCollection = settings["theAtt"] instanceof Collection
+                if (isDeviceCollection && isAttributeCollection) {
+                    if (logEnable) log.debug "Both device and attribute are collections"
+                    settings["theDevice"].each { td ->
+                        settings["theAtt"].each { ta ->
+                            subscribe(td, ta, getEventsHandler)
+                        }
+                    }
+                }
+                else if (!isDeviceCollection && isAttributeCollection) {
+                    if (logEnable) log.debug "Only device is a collection"
+                    td = settings["theDevice"]
+                    settings["theAtt"].each { ta ->
+                        subscribe(td, ta, getEventsHandler)
+                    }
+                }
+                else if (!isDeviceCollection && !isAttributeCollection) {
+                    if (logEnable) log.debug "Only attribute is a collection"
+                    td = settings["theDevice"]
+                    ta = settings["theAtt"]
+                    subscribe(td, ta, getEventsHandler)
+                }         
+                else log.warn "No events subscribed to. isDeviceCollection = ${isDeviceCollection}. isAttributeCollection = ${isAttributeCollection}"  
+            }         
+            else if (!(dataSource || chartConfigType == "pointData") && settings["updateDevice"] && settings["updateAttribute"]) {
+                subscribe(updateDevice, updateAttribute, updateAttributeHandler)
+            }
         }
 
+        if (updateWithOtherCharts == true) {
+            settings["updateCharts"].each { chartDevice ->
+                subscribe(chartDevice, "chart", getEventsHandler)
+            }
+        }
 /*
         if (gType == "radialProgressGauge") {
             if (numCenterLabelRows && numCenterLabelRows > 0) {
