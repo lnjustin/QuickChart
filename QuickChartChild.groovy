@@ -34,6 +34,7 @@
  * ------------------------------------------------------------------------------------------------------------------------------
  *
  *  Changes:
+ *  1.0.2 - 07/12/2024 - Bug fix
  *  1.0.1 - 07/12/2024 - Added support for customizing the periodic interval of chart updates
  *  1.0.0 - 05/19/2024 - official release; separate inputs for periodic updates, device attribute updates, and other chart sync
  *  0.5.2 -06/16/23 bug fixes
@@ -115,7 +116,7 @@ def pageConfig() {
             input "labelSize", "number", title: "Label size (pixels)", submitOnChange:false, width: dynamicWidth
             if (hasBar(gType)) input "globalBarThickness", "number", title: "Global Bar Thickness", submitOnChange:false, width: dynamicWidth, required: false, defaultValue: 30           
 
-            if (!hasBar(gType) && !hasGRID(gType)) dynamicWidth = 6
+            if (!hasBar(gType) && !hasGrid(gType)) dynamicWidth = 6
             input "bkgrdColor", "text", title: "Background Color", defaultValue:"white", submitOnChange:false, width: dynamicWidth
             if (hasGrid(gType)) input "gridColor", "text", title: "Grid Color", defaultValue:"black", submitOnChange:false, width: dynamicWidth   
             input "labelColor", "text", title: "Label Color", defaultValue:"black", submitOnChange:false, width: dynamicWidth
