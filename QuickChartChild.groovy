@@ -34,6 +34,7 @@
  * ------------------------------------------------------------------------------------------------------------------------------
  *
  *  Changes:
+ *  1.0.1 - 07/12/2024 - Added support for customizing the periodic interval of chart updates
  *  1.0.0 - 05/19/2024 - official release; separate inputs for periodic updates, device attribute updates, and other chart sync
  *  0.5.2 -06/16/23 bug fixes
  *  0.5.1-3 - 03/22/23 - bug fixes
@@ -103,20 +104,22 @@ def pageConfig() {
             input "gType", "enum", title: "Chart Style", options: ["bar","line", "horizontalBar","stateTiming","pie","doughnut","scatter","bubble","gauge","radialGauge","violin","sparkline","progressBar","radialProgressGauge",""], submitOnChange:true, width:4, required: true
             chartConfigType = getChartConfigType(gType)
             axisType = getChartAxisType(gType)
-            
-            input "theChartTitle", "text", title: "Chart Title", submitOnChange:true, width:4   
-            input "chartHeight", "number", title: "Chart Height (pixels)", description: "Leave Blank for Default Height", submitOnChange:false, width: 4       
-            input "chartPadding", "number", title: "Chart Padding (pixels)", description: "Leave Blank for Default Padding. Pad if labels get cut off.", submitOnChange:false, width: 4   
-            input "bkgrdColor", "text", title: "Background Color", defaultValue:"white", submitOnChange:false, width: 4
-            input "labelColor", "text", title: "Label Color", defaultValue:"black", submitOnChange:false, width: 4
-            input "labelSize", "number", title: "Label size (pixels)", submitOnChange:false, width: 4
 
+            input "theChartTitle", "text", title: "Chart Title", submitOnChange:true, width:8   
 
-            if (hasGrid(gType)) input "gridColor", "text", title: "Grid Color", defaultValue:"black", submitOnChange:false, width: 4   
-            if (hasBar(gType)) {
-                input "barColor", "text", title: "Bar Color", defaultValue:"blue", submitOnChange:false, width: 4  
-                input "globalBarThickness", "number", title: "Global Bar Thickness", submitOnChange:false, width: 4, required: false, defaultValue: 30           
-            }
+            def dynamicWidth = 3
+            if (!hasBar(gType)) dynamicWidth = 4
+
+            input "chartHeight", "number", title: "Chart Height (pixels)", description: "Leave Blank for Default Height", submitOnChange:false, width: dynamicWidth       
+            input "chartPadding", "number", title: "Chart Padding (pixels)", description: "Pad if labels get cut off.", submitOnChange:false, width: dynamicWidth   
+            input "labelSize", "number", title: "Label size (pixels)", submitOnChange:false, width: dynamicWidth
+            if (hasBar(gType)) input "globalBarThickness", "number", title: "Global Bar Thickness", submitOnChange:false, width: dynamicWidth, required: false, defaultValue: 30           
+
+            if (!hasBar(gType) && !hasGRID(gType)) dynamicWidth = 6
+            input "bkgrdColor", "text", title: "Background Color", defaultValue:"white", submitOnChange:false, width: dynamicWidth
+            if (hasGrid(gType)) input "gridColor", "text", title: "Grid Color", defaultValue:"black", submitOnChange:false, width: dynamicWidth   
+            input "labelColor", "text", title: "Label Color", defaultValue:"black", submitOnChange:false, width: dynamicWidth
+            if (hasBar(gType)) input "barColor", "text", title: "Bar Color", defaultValue:"blue", submitOnChange:false, width: dynamicWidth  
 
             def updateTimeOptions = [
                 ["manual":"No Periodic Update"],
@@ -126,8 +129,15 @@ def pageConfig() {
                 ["30min":"Every 30 Minutes"],
                 ["1hour":"Every 1 Hour"],
                 ["3hour":"Every 3 Hours"],
+                ["custom":"Custom Time Period"]
             ]
             input "updateTime", "enum", title: "Periodic Update", options: updateTimeOptions, defaultValue:"manual", submitOnChange:true, width: 4 
+            if (updateTime == "custom") {
+                input "customUpdateTimeValue", "number", title: "Period Value", submitOnChange:false, width: 2, required: true
+                input "customUpdateTimeUnits", "enum", title: "Period Units", options: ["mins":"minute(s)","hours":"hour(s)", "days":"day(s)"], submitOnChange:false, width: 2, required: true
+                input "customUpdateTimeStart", "time", title: "Period Start Time", submitOnChange:false, width: 2, required: true
+                paragraph getFormat("note", "Custom period will start at the next occurrence of the entered time of day, and recur every X minutes, hours, or days as entered.")
+            }
 
             input "updateWithAttribute", "bool", title: "Update with Device Attribute Value", defaultValue:false, submitOnChange:true, width: 12 
 
@@ -732,7 +742,10 @@ def initialize() {
             runEvery1Hour(getEventsHandler)
         } else if(updateTime == "3hour") {
             runEvery3Hours(getEventsHandler)
-        } 
+        } else if (updateTime == "custom") {
+            def startTime = toDateTime(customUpdateTimeStart)
+            runOnce(startTime, periodicallyTriggerEventsHandler)
+        }
         
         if(updateWithAttribute == true) {
 
@@ -786,6 +799,28 @@ def initialize() {
     }
     
 } 
+
+def periodicallyTriggerEventsHandler() {
+    getEventsHandler()
+    Date now = new Date()
+    Date then = null
+    if (customUpdateTimeUnits == "mins") {
+        use( TimeCategory ) {
+            then = now + (customUpdateTimeValue as Integer).minutes
+        }
+    }
+    else if (customUpdateTimeUnits == "hours") {
+        use( TimeCategory ) {
+            then = now + (customUpdateTimeValue as Integer).hours
+        }
+    }
+    else if (customUpdateTimeUnits == "days") {
+        use( TimeCategory ) {
+            then = now + (customUpdateTimeValue as Integer).days
+        }
+    }
+    if (then) runOnce(then, periodicallyTriggerEventsHandler)
+}
 
 def updateAttributeHandler(evt) {
     if(logEnable) log.debug "In updateAttributeHandler with evt ${evt}"
@@ -2390,7 +2425,7 @@ def getFormat(type, myText=null, page=null) {			// Modified code from @Stephack
     if(type == "header-green") return "<div style='color:#ffffff;font-weight: bold;background-color:#81BC00;border: 1px solid #000000;box-shadow: 2px 3px #8B8F8F;border-radius: 10px'>${myText}</div>"
     if(type == "line") return "<hr style='background-color:#1A77C9; height: 1px; border: 0;' />"
     if(type == "title") return "<h2 style='color:#1A77C9;font-weight: bold'>${myText}</h2>"
-    
+    if (type == "note") return "<div style='color:#333333;font-size: small;'>${myText}</div>"
     if(type == "button-blue") return "<a style='color:white;text-align:center;font-size:20px;font-weight:bold;background-color:#03FDE5;border:1px solid #000000;box-shadow:3px 4px #8B8F8F;border-radius:10px' href='${page}'>${myText}</a>"
 }
 

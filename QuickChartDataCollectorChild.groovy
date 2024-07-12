@@ -152,8 +152,15 @@ def pageConfig() {
                     ["15min":"Every 15 Minutes"],
                     ["30min":"Every 30 Minutes"],
                     ["1hour":"Every 1 Hour"],
-                    ["3hour":"Every 3 Hours"]
+                    ["3hour":"Every 3 Hours"],
+                    ["custom":"Custom Time Period"]
                 ], defaultValue:"statusChange", submitOnChange:true
+                if (updateTime == "custom") {
+                    input "customUpdateTimeValue", "number", title: "Period Value", submitOnChange:false, width: 2, required: true
+                    input "customUpdateTimeUnits", "enum", title: "Period Units", options: ["mins":"minute(s)","hours":"hour(s)", "days":"day(s)"], submitOnChange:false, width: 2, required: true
+                    input "customUpdateTimeStart", "time", title: "Period Start Time", submitOnChange:false, width: 2, required: true
+                    paragraph getFormat("note", "Custom period will start at the next occurrence of the entered time of day, and recur every X minutes, hours, or days as entered.")
+                }
                 paragraph "<small>* Max storage is 7 days</small>"
                 paragraph state.message
             }
@@ -170,8 +177,15 @@ def pageConfig() {
                     ["15min":"Every 15 Minutes"],
                     ["30min":"Every 30 Minutes"],
                     ["1hour":"Every 1 Hour"],
-                    ["3hour":"Every 3 Hours"]
+                    ["3hour":"Every 3 Hours"],
+                    ["custom":"Custom Time Period"]
                 ], defaultValue:"manual", submitOnChange:true
+                if (updateTime == "custom") {
+                    input "customUpdateTimeValue", "number", title: "Period Value", submitOnChange:true, width: 2, required: true
+                    input "customUpdateTimeUnits", "enum", title: "Period Units", options: ["mins":"minute(s)","hours":"hour(s)", "days":"day(s)"], submitOnChange:true, width: 2, required: true
+                    input "customUpdateTimeStart", "time", title: "Period Start Time", submitOnChange:true, width: 2, required: true
+                    paragraph getFormat("note", "Custom period will start at the next occurrence of the entered time of day, and recur every X minutes, hours, or days as entered.")
+                }
 
                 input "recordAll", "bool", title: "Record data even if it's the same as previous value", defaultValue:false, submitOnChange:true    
                 if (theAttr) {
@@ -195,7 +209,19 @@ def pageConfig() {
                                 app?.updateSetting("getManual",[value:"false",type:"bool"])
                             }
                         }
-                    } else {
+                    } else if (updateTime == "custom") {
+                        Integer min = 0
+                        if (customUpdateTimeUnits == "mins") min = (customUpdateTimeValue as Integer)
+                        else if (customUpdateTimeUnits == "hours") min = (customUpdateTimeValue as Integer) * 60
+                        else if (customUpdateTimeUnits == "days") min = (customUpdateTimeValue as Integer) * 60 * 24
+                        hours = (min * dataPoints) / 60
+                        if(dataPoints && theDevices && theAttr) {
+                            paragraph "This will save ${hours} hours of data"
+                            int actualPoints = dataPoints * (theDevices.size() * theAttr.size())
+                            paragraph "Based on options selected: ${dataPoints} Datapoints x (${theDevices.size()} Device(s) x ${theAttr.size()} Attribute(s)) will be $actualPoints points of data saved."
+                        }
+                    } 
+                    else {
                         min = updateTime.findAll( /\d+/ )*.toInteger()
                         min = min.toString().replace("[","").replace("]","")
                         if(updateTime == "1hour" || updateTime == "3hour") min = min.toInteger() * 60
@@ -332,7 +358,11 @@ def initialize() {
                 runEvery1Hour(getDataHandler)
             } else if(updateTime == "3hour") {
                 runEvery3Hours(getDataHandler)
+            } else if(updateTime == "custom") {
+                def startTime = toDateTime(customUpdateTimeStart)
+                runOnce(startTime, periodicallyTriggerDataHandler)
             }
+
             schedule("59 59 23 ? * * *", rawDataFileMaint, [overwrite:false]) // record last value of the day
             schedule("1 0 0 ? * * *", rawDataFileMaint, [overwrite:false]) // record first value of the day
         }
@@ -355,10 +385,46 @@ def initialize() {
                 runEvery1Hour(durationUpdater) 
             } else if(updateTime == "3hour") {
                 runEvery3Hours(durationUpdater) 
+            } else if(updateTime == "custom") {
+                def startTime = toDateTime(customUpdateTimeStart)
+                runOnce(startTime, periodicallyTriggerDurationUpdater)
             }
             schedule("1 0 0 ? * * *", durationFileMaint)
         }
     }
+}
+
+def periodicallyTriggerDataHandler() {
+    getDataHandler()
+    Date then = getNextCustomPeriodTime()
+    if (then) runOnce(then, periodicallyTriggerDataHandler)
+}
+
+def periodicallyTriggerDurationUpdater() {
+    durationUpdater()
+    Date then = getNextCustomPeriodTime()
+    if (then) runOnce(then, periodicallyTriggerDurationUpdater)
+}
+
+Date getNextCustomPeriodTime() {
+    Date now = new Date()
+    Date then = null
+    if (customUpdateTimeUnits == "mins") {
+        use( TimeCategory ) {
+            then = now + (customUpdateTimeValue as Integer).minutes
+        }
+    }
+    else if (customUpdateTimeUnits == "hours") {
+        use( TimeCategory ) {
+            then = now + (customUpdateTimeValue as Integer).hours
+        }
+    }
+    else if (customUpdateTimeUnits == "days") {
+        use( TimeCategory ) {
+            then = now + (customUpdateTimeValue as Integer).days
+        }
+    }
+    return then
 }
 
 def durationHandler(evt) {
