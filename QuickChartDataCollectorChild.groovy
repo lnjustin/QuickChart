@@ -193,10 +193,11 @@ def pageConfig() {
                         input "diffPerc", "bool", title: "Use value difference (off) OR percentage difference (on)", defaultValue:false, submitOnChange:true
                         if(diffPerc) {
                             paragraph "* Using Percentage Difference"
+                            input "diff", "decimal", title: "Difference from previous value to record a data point (range 0-100)", range: '0..100', defaultValue:0, submitOnChange:true
                         } else {
                             paragraph "* Using Value Difference"
+                            input "diff", "decimal", title: "Difference from previous value to record a data point", defaultValue:0, submitOnChange:true
                         }
-                        input "diff", "number", title: "Difference from previous value to record a data point (range: 0..100)", range: '0..100', defaultValue:0, submitOnChange:true
                     }
                 }
                 input "dataPoints", "number", title: "How many data point to keep per option", submitOnChange:true, required: true
@@ -568,12 +569,12 @@ def getDataHandler(evt) {
                     else { 
                         if (state.isNumericalData) {                    
                             if(diffPerc) {                      
-                                theDiff = 100 * ((Math.abs(event - prev)) / prev).round(2)
+                                theDiff = 100 * ((Math.abs(event - prev)) / prev).round(4)
                             } else {
                                 theDiff = Math.abs(prev - event)
                             }
                             if(logEnable) log.debug "In getDataHandler - checking prev: ${prev} -VS- ${event} - theDiff: ${theDiff}"
-                            if(theDiff < diff.toInteger()) {
+                            if(theDiff < diff) {
                                 if (recordAll) recordEvent = true
                                 else recordEvent = false
                             } else {

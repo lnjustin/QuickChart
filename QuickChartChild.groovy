@@ -34,6 +34,7 @@
  * ------------------------------------------------------------------------------------------------------------------------------
  *
  *  Changes:
+ *  1.0.3 - 07/12/2024 - Support for decimal values for data collector value/percentage difference
  *  1.0.2 - 07/12/2024 - Bug fix
  *  1.0.1 - 07/12/2024 - Added support for customizing the periodic interval of chart updates
  *  1.0.0 - 05/19/2024 - official release; separate inputs for periodic updates, device attribute updates, and other chart sync
