@@ -1,9 +1,9 @@
 {
   "packageName": "Quick Chart",
   "author": "lnjustin",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "minimumHEVersion": "2.1.9",
-  "dateReleased": "2024-07-12",
+  "dateReleased": "2024-07-31",
   "apps": [
     {
       "id": "ff7a7371-886a-46ba-800c-2eb5460070d3",

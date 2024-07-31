@@ -34,6 +34,7 @@
  * ------------------------------------------------------------------------------------------------------------------------------
  *
  *  Changes:
+ *  1.0.4 - 07/31/2024 - Added support for custom number of days to chart
  *  1.0.3 - 07/12/2024 - Support for decimal values for data collector value/percentage difference
  *  1.0.2 - 07/12/2024 - Bug fix
  *  1.0.1 - 07/12/2024 - Added support for customizing the periodic interval of chart updates
@@ -282,8 +283,10 @@ def seriesDataChartConfig() {
             ["4":"+ 4 Days"],
             ["5":"+ 5 Days"],
             ["6":"+ 6 Days"],
-            ["7":"+ 7 Days"]
-        ], defaultValue:"999", submitOnChange:true
+            ["7":"+ 7 Days"],
+            ["custom":"Custom"]
+        ], defaultValue:"999", submitOnChange:true, width: 9
+        if (theDays == "custom") input "customDays", "number", title: "Enter number of days to chart", required: true, submitOnChange: true, width: 3
         if (state.isNumericalData) input "decimals", "enum", title: "Number of Decimal places", options: ["None","1","2"], defaultValue:"None", submitOnChange:true                
     } else if(dataType == "duration") {
         input "theDays", "enum", title: "Select How to Chart", multiple:false, required:true, options: [
@@ -294,8 +297,10 @@ def seriesDataChartConfig() {
             ["4":"Daily Total - 4 Days"],
             ["5":"Daily Total - 5 Days"],
             ["6":"Daily Total - 6 Days"],
-            ["7":"Daily Total - 7 Days"]
-        ], defaultValue:"7", submitOnChange:true
+            ["7":"Daily Total - 7 Days"],
+            ["custom":"Custom"]
+        ], defaultValue:"7", submitOnChange:true, width: 9
+        if (theDays == "custom") input "customDays", "number", title: "Enter number of days to chart", required: true, submitOnChange: true, width: 3
         input "decimals", "enum", title: "Number of Decimal places", options: ["None","1","2"], defaultValue:"None", submitOnChange:true, width:6
         input "secMin", "bool", title: "Chart using Seconds (off) or Minutes (on)", defaultValue:false, submitOnChange:true, width:6
         }
@@ -870,6 +875,8 @@ def getEvents() {
             if(theDays) {
                 if(theDays == "999") {
                     days = today
+                } else if (theDays == "custom" && customDays != null) {
+                    days = today - customDays
                 } else {
                     days = today - theDays.toInteger()
                 }
@@ -1566,8 +1573,9 @@ def eventChartingHandler(eventMap) {
             
             def minDate = null
             def maxDate = null
-            def dayOffset = 0            
-            if (theDays != "999") dayOffset = theDays.toInteger()
+            def dayOffset = 0      
+            if (theDays == "custom" && customDays != null) dayOffset = customDays
+            else if (theDays != "999") dayOffset = theDays.toInteger()
 
             
             if (xAxisOrigin == "day") {
@@ -2156,10 +2164,12 @@ String readFile(fName){
                 } else {                    
                     def xMax = 1
                     if(dataType == "rawdata") {
-                        if(theDays != "999") xMax = theDays.toInteger()
+                        if (theDays == "custom" && customDays != null) xMax = customDays
+                        else if(theDays != "999") xMax = theDays.toInteger()
                     }
                     else if(dataType == "duration") {
-                        if(theDays == "999") xMax = 7  
+                        if (theDays == "custom" && customDays) xMax = customDays
+                        else if(theDays == "999") xMax = 7  
                         else xMax = theDays.toInteger()
                     }
                     if(logEnable) log.debug "In readFile - Duration ***** Iterating through file with xMax: ${xMax} *****"
