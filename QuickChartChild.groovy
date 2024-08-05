@@ -34,6 +34,7 @@
  * ------------------------------------------------------------------------------------------------------------------------------
  *
  *  Changes:
+ *  1.0.5 - 08/05/2024 - cleaned up trace logging in data collector
  *  1.0.4 - 07/31/2024 - Added support for custom number of days to chart
  *  1.0.3 - 07/12/2024 - Support for decimal values for data collector value/percentage difference
  *  1.0.2 - 07/12/2024 - Bug fix

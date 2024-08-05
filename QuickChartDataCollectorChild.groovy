@@ -595,7 +595,7 @@ def getDataHandler(evt) {
                         if(logEnable) log.debug "In getDataHandler - NOT Recording ${theDev};${theAt.capitalize()};${now};${event} - prev: ${prev}"    
                     }                        
                 }
-                log.trace "lastMap: ${state.lastMap}"
+ 
                 checkPointsHandler()
             }
         }
@@ -646,7 +646,7 @@ def rawDataFileMaint() {
                      if(logEnable) log.debug "In getDataHandler - Saving prev - ${theName} - ${event}"
                      state.lastMap.put(theName,event)                                          
                 }
-                log.trace "lastMap: ${state.lastMap}"
+
                 checkPointsHandler()
             }
         }
