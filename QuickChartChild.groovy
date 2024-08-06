@@ -34,6 +34,7 @@
  * ------------------------------------------------------------------------------------------------------------------------------
  *
  *  Changes:
+ *  1.0.6 - 08/06/2024 - made fill under line chart configurable
  *  1.0.5 - 08/05/2024 - cleaned up trace logging in data collector
  *  1.0.4 - 07/31/2024 - Added support for custom number of days to chart
  *  1.0.3 - 07/12/2024 - Support for decimal values for data collector value/percentage difference
@@ -104,12 +105,12 @@ def pageConfig() {
         def chartConfigType = null
         def axisType = null
         
-        section(getFormat("header-green", "${getImage("Blank")}"+" Genearl Chart Options")) {
+        section(getFormat("header-green", "${getImage("Blank")}"+" General Chart Options")) {
             input "gType", "enum", title: "Chart Style", options: ["bar","line", "horizontalBar","stateTiming","pie","doughnut","scatter","bubble","gauge","radialGauge","violin","sparkline","progressBar","radialProgressGauge",""], submitOnChange:true, width:4, required: true
             chartConfigType = getChartConfigType(gType)
             axisType = getChartAxisType(gType)
 
-            input "theChartTitle", "text", title: "Chart Title", submitOnChange:true, width:8   
+            input "theChartTitle", "text", title: "Chart Title", submitOnChange:true, width: 8   
 
             def dynamicWidth = 3
             if (!hasBar(gType)) dynamicWidth = 4
@@ -124,7 +125,10 @@ def pageConfig() {
             if (hasGrid(gType)) input "gridColor", "text", title: "Grid Color", defaultValue:"black", submitOnChange:false, width: dynamicWidth   
             input "labelColor", "text", title: "Label Color", defaultValue:"black", submitOnChange:false, width: dynamicWidth
             if (hasBar(gType)) input "barColor", "text", title: "Bar Color", defaultValue:"blue", submitOnChange:false, width: dynamicWidth  
+             if (gType == "line") input "chartFill", "bool", title: "Fill Under Line?", width: 3
 
+        }
+        section(getFormat("header-green", "${getImage("Blank")}"+" Chart Update Configuration")) {
             def updateTimeOptions = [
                 ["manual":"No Periodic Update"],
                 ["5min":"Every 5 Minutes"],
@@ -439,7 +443,6 @@ def XYAxisConfig() {
     if (gType != "stateTiming") input "stackYAxis", "bool", title: "Stack Y-Axis Data", defaultValue:false, submitOnChange:false, width: 4
   
     input "tickSource", "enum", title: "Tick Source", options: ["auto", "data"], submitOnChange: false, required: true, width: 3
-
 }
 
 def pointDataChartConfig() {
@@ -1956,10 +1959,12 @@ def eventChartingHandler(eventMap) {
                     if(x==1) {
                         buildChart = "{type:'${gType}',data:{datasets:[{label:'${theAttribute}',data:${theData}"
                         if ((gType == "bar" || gType == "horizontalBar" || gType == "progressBar") && barWidth != null) buildChart += ", barThickness: ${globalBarThickness}"
+                        if (gType == "line") buildChart += ", fill: " + chartFill ?: "false"
                         buildChart += "}"
                     } else {
                         buildChart += ",{label:'${theAttribute}',data:${theData}"
                         if ((gType == "bar" || gType == "horizontalBar" || gType == "progressBar") && barWidth != null) buildChart += ", barThickness: ${globalBarThickness}"
+                        if (gType == "line") buildChart += ", fill: " + chartFill ?: "false"
                         buildChart += "}"
                     }
 
