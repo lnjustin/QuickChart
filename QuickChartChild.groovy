@@ -34,6 +34,7 @@
  * ------------------------------------------------------------------------------------------------------------------------------
  *
  *  Changes:
+ *  1.0.7 - 10/13/2024 - bug fix
  *  1.0.6 - 08/06/2024 - made fill under line chart configurable
  *  1.0.5 - 08/05/2024 - cleaned up trace logging in data collector
  *  1.0.4 - 07/31/2024 - Added support for custom number of days to chart
@@ -758,8 +759,9 @@ def initialize() {
             runOnce(startTime, periodicallyTriggerEventsHandler)
         }
         
+        def chartConfigType = getChartConfigType(gType)
         if(updateWithAttribute == true) {
-
+    
             if ((dataSource || chartConfigType == "pointData") && settings["theDevice"] && settings["theAtt"]) {
                 def isDeviceCollection = settings["theDevice"] instanceof Collection
                 def isAttributeCollection = settings["theAtt"] instanceof Collection
@@ -771,24 +773,25 @@ def initialize() {
                         }
                     }
                 }
-                else if (!isDeviceCollection && isAttributeCollection) {
+                else if (isDeviceCollection && !isAttributeCollection) {
                     if (logEnable) log.debug "Only device is a collection"
                     td = settings["theDevice"]
                     settings["theAtt"].each { ta ->
                         subscribe(td, ta, getEventsHandler)
                     }
                 }
-                else if (!isDeviceCollection && !isAttributeCollection) {
-                    if (logEnable) log.debug "Only attribute is a collection"
+                else {
+                    if (logEnable) log.debug "Either only attribute is a collection or neither is a collection"
                     td = settings["theDevice"]
                     ta = settings["theAtt"]
                     subscribe(td, ta, getEventsHandler)
                 }         
-                else log.warn "No events subscribed to. isDeviceCollection = ${isDeviceCollection}. isAttributeCollection = ${isAttributeCollection}"  
+              //  else log.warn "No events subscribed to. isDeviceCollection = ${isDeviceCollection}. isAttributeCollection = ${isAttributeCollection}"  
             }         
             else if (!(dataSource || chartConfigType == "pointData") && settings["updateDevice"] && settings["updateAttribute"]) {
                 subscribe(updateDevice, updateAttribute, updateAttributeHandler)
             }
+            else log.warn "updateWithAttribute = true but no conditions met for subscribing to attribute events"
         }
 
         if (updateWithOtherCharts == true) {
@@ -2042,7 +2045,7 @@ def sendJsonGetShortURL(jsonBody) {
         uri: "https://quickchart.io/chart/create",
         headers: ["Content-Type": "application/json"],
         body: jsonBody,
-        timeout: 30
+        timeout: 60
     ]
 
     try{
